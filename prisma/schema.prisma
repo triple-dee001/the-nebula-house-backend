@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  password        String?   // null for Google OAuth users
+  googleId        String?   @unique
+  role            Role      @default(USER)
+  bio             String?
+  photo           String?
+  emailVerified   Boolean   @default(false)
+  verifyToken     String?
+  resetToken      String?
+  resetTokenExp   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  posts           Post[]
+  comments        Comment[]
+  likes           Like[]
+  nominations     Nomination[]
+  newsletter      Newsletter?
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Post {
+  id          String      @id @default(uuid())
+  title       String
+  subtitle    String?
+  body        String
+  excerpt     String?
+  tags        String?
+  coverImage  String?
+  status      PostStatus  @default(PENDING)
+  rejectReason String?
+  views       Int         @default(0)
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  approvedAt  DateTime?
+
+  comments    Comment[]
+  likes       Like[]
+
+  @@map("posts")
+}
+
+enum PostStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  body      String
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@map("likes")
+}
+
+model Newsletter {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subscribedAt DateTime @default(now())
+
+  @@map("newsletter")
+}
+
+model Nomination {
+  id            String   @id @default(uuid())
+  bookTitle     String
+  bookAuthor    String
+  reason        String?
+  submitterId   String
+  submitter     User     @relation(fields: [submitterId], references: [id], onDelete: Cascade)
+  submittedAt   DateTime @default(now())
+
+  @@map("nominations")
+}
