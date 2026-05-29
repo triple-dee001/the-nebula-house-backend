@@ -5,4 +5,4 @@ cmds = ["npm install"]
 cmds = ["npx prisma generate"]
 
 [start]
-cmd = "npx prisma db push --accept-data-loss && node server.js"
+cmd = "node server.js"
