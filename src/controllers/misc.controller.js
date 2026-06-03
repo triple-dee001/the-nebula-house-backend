@@ -3,7 +3,7 @@ const prisma = require('../lib/prisma');
 // ─── SUBSCRIBE TO NEWSLETTER ─────────────────
 async function subscribe(req, res) {
   try {
-    const { email } = req.body;
+    const { email, name } = req.body;
     if (!email) return res.status(400).json({ error: 'Email required' });
 
     const existing = await prisma.newsletter.findUnique({ where: { email: email.toLowerCase() } });
@@ -15,6 +15,25 @@ async function subscribe(req, res) {
         userId: req.user?.id || null,
       },
     });
+
+    // Sync to Brevo contacts list (non-blocking)
+    if (process.env.BREVO_API_KEY) {
+      fetch('https://api.brevo.com/v3/contacts', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          attributes: { FIRSTNAME: name || '' },
+          listIds: [process.env.BREVO_LIST_ID ? parseInt(process.env.BREVO_LIST_ID) : 2],
+          updateEnabled: true,
+        }),
+      }).catch(err => console.error('Brevo contact sync error:', err));
+    }
+
     res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
