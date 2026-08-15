@@ -48,6 +48,7 @@ async function getAllUsers(req, res) {
         select: {
           id: true, name: true, email: true, role: true, photo: true,
           emailVerified: true, createdAt: true, bio: true,
+          isMentor: true, mentorBio: true,
           _count: { select: { posts: true, comments: true } },
         },
       }),
@@ -198,8 +199,26 @@ async function getNominations(req, res) {
   }
 }
 
+// ─── TOGGLE MENTOR STATUS ──────────────────────
+async function toggleUserMentor(req, res) {
+  try {
+    const { isMentor, mentorBio } = req.body;
+    const data = { isMentor: !!isMentor };
+    if (mentorBio !== undefined) data.mentorBio = mentorBio;
+
+    const updated = await prisma.user.update({
+      where: { id: req.params.id },
+      data,
+      select: { id: true, name: true, email: true, isMentor: true, mentorBio: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
 module.exports = {
   getStats, getAllUsers, updateUserRole, deleteUser,
   getAllPosts, approvePost, rejectPost, deletePost,
-  getNewsletter, getNominations,
+  getNewsletter, getNominations, toggleUserMentor,
 };

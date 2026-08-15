@@ -13,7 +13,7 @@ model User {
   email           String    @unique
   password        String?   // null for Google OAuth users
   googleId        String?   @unique
-  role            Role      @default(USER)
+  role            String    @default("USER")
   bio             String?
   photo           String?
   emailVerified   Boolean   @default(false)
@@ -23,20 +23,22 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  isMentor        Boolean   @default(false)
+  mentorBio       String?
+
   posts           Post[]
   comments        Comment[]
   likes           Like[]
   nominations     Nomination[]
   newsletter      Newsletter?
 
+  mentorRequestsReceived MentorshipRequest[] @relation("MentorRequests")
+  mentorRequestsSent     MentorshipRequest[] @relation("MenteeRequests")
+
   @@map("users")
 }
 
-enum Role {
-  USER
-  ADMIN
-  SUPER_ADMIN
-}
+// Role enum removed for SQLite
 
 model Post {
   id          String      @id @default(uuid())
@@ -46,7 +48,7 @@ model Post {
   excerpt     String?
   tags        String?
   coverImage  String?
-  status      PostStatus  @default(PENDING)
+  status      String      @default("PENDING")
   rejectReason String?
   views       Int         @default(0)
   authorId    String
@@ -55,17 +57,16 @@ model Post {
   updatedAt   DateTime    @updatedAt
   approvedAt  DateTime?
 
+  challengeId String?
+  challenge   Challenge?  @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+
   comments    Comment[]
   likes       Like[]
 
   @@map("posts")
 }
 
-enum PostStatus {
-  PENDING
-  PUBLISHED
-  REJECTED
-}
+// PostStatus enum removed for SQLite
 
 model Comment {
   id        String   @id @default(uuid())
@@ -111,4 +112,32 @@ model Nomination {
   submittedAt   DateTime @default(now())
 
   @@map("nominations")
+}
+
+model Challenge {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  theme       String
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  posts       Post[]
+
+  @@map("challenges")
+}
+
+model MentorshipRequest {
+  id          String   @id @default(uuid())
+  mentorId    String
+  mentor      User     @relation("MentorRequests", fields: [mentorId], references: [id], onDelete: Cascade)
+  menteeId    String
+  mentee      User     @relation("MenteeRequests", fields: [menteeId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@map("mentorship_requests")
 }

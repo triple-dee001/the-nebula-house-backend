@@ -73,7 +73,7 @@ async function getPost(req, res) {
 // ─── CREATE POST ──────────────────────────────
 async function createPost(req, res) {
   try {
-    const { title, subtitle, body, excerpt, tags } = req.body;
+    const { title, subtitle, body, excerpt, tags, challengeId } = req.body;
     if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
 
     const post = await prisma.post.create({
@@ -85,6 +85,7 @@ async function createPost(req, res) {
         tags: tags?.trim(),
         authorId: req.user.id,
         status: 'PENDING',
+        challengeId: challengeId || null,
       },
     });
 
