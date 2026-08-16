@@ -17,6 +17,8 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://the-nebula-house-website.vercel.app',
+  'https://thenebulahouse.com',
+  'https://www.thenebulahouse.com',
   'https://triple-dee001.github.io',
   'http://localhost:5500',
   'http://127.0.0.1:5500',

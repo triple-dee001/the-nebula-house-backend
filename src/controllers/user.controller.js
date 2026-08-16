@@ -95,4 +95,26 @@ async function getUserPosts(req, res) {
   }
 }
 
-module.exports = { getProfile, updateProfile, uploadPhoto, changePassword, getUserPosts };
+// ─── GET ALL WRITERS (Community Directory) ────
+async function getWriters(req, res) {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        photo: true,
+        bio: true,
+        role: true,
+        createdAt: true,
+        _count: { select: { posts: { where: { status: 'PUBLISHED' } } } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json(users);
+  } catch (err) {
+    console.error('Get writers error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { getProfile, updateProfile, uploadPhoto, changePassword, getUserPosts, getWriters };

@@ -168,4 +168,44 @@ async function getMyPosts(req, res) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts };
+// ─── UPDATE POST (CMS Edit) ───────────────────
+async function updatePost(req, res) {
+  try {
+    const { id } = req.params;
+    const { title, subtitle, body, excerpt, tags, challengeId } = req.body;
+    if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
+
+    const post = await prisma.post.findUnique({ where: { id } });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    // Verify ownership or admin role
+    if (post.authorId !== req.user.id && req.user.role === 'USER') {
+      return res.status(403).json({ error: 'Not authorized to edit this story' });
+    }
+
+    // Determine new status: reset to PENDING if edited by a regular user,
+    // keep as PUBLISHED if edited by an admin.
+    const newStatus = (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN') ? 'PUBLISHED' : 'PENDING';
+
+    const updated = await prisma.post.update({
+      where: { id },
+      data: {
+        title: title.trim(),
+        subtitle: subtitle?.trim(),
+        body,
+        excerpt: excerpt?.trim(),
+        tags: tags?.trim(),
+        challengeId: challengeId || null,
+        status: newStatus,
+        rejectReason: null,
+      },
+    });
+
+    res.json({ message: 'Story updated successfully', post: updated });
+  } catch (err) {
+    console.error('Update post error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost };

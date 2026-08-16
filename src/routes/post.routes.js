@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { requireAuth, requireVerified } = require('../middleware/auth');
-const { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts } = require('../controllers/post.controller');
+const { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost } = require('../controllers/post.controller');
 
 // Optional auth middleware — attaches user if token present but doesn't block
 const optionalAuth = async (req, res, next) => {
@@ -20,6 +20,7 @@ router.get('/', getPosts);
 router.get('/mine', requireAuth, getMyPosts);
 router.get('/:id', optionalAuth, getPost);
 router.post('/', requireAuth, requireVerified, createPost);
+router.put('/:id', requireAuth, requireVerified, updatePost);
 router.post('/:id/like', requireAuth, toggleLike);
 router.post('/:id/comments', requireAuth, requireVerified, addComment);
 router.delete('/:id/comments/:commentId', requireAuth, deleteComment);
