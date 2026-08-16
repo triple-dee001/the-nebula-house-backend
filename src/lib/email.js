@@ -1,6 +1,6 @@
 // Brevo HTTP API — no SDK, plain fetch
 const BASE_URL = process.env.FRONTEND_URL || 'https://the-nebula-house-website.vercel.app';
-const BACKEND_URL = process.env.BACKEND_URL || 'https://the-nebula-house-backend-production-8bb3.up.railway.app';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://the-nebula-house-backend.onrender.com';
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'kelechioji@thenebulahouse.com';
 const SENDER_NAME = 'The Nebula House';
 
