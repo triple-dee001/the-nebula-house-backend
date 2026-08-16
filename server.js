@@ -7,6 +7,9 @@ const path = require('path');
 
 const app = express();
 
+// Enable trust proxy for rate limiting behind Render's load balancer
+app.set('trust proxy', 1);
+
 // ─── SECURITY ─────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
