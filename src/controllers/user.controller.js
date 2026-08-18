@@ -61,11 +61,12 @@ async function updateProfile(req, res) {
 // ─── UPLOAD PHOTO ─────────────────────────────
 async function uploadPhoto(req, res) {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const photoUrl = `/uploads/${req.file.filename}`;
+    const { photo } = req.body;
+    if (!photo) return res.status(400).json({ error: 'No photo data provided' });
+
     const updated = await prisma.user.update({
       where: { id: req.user.id },
-      data: { photo: photoUrl },
+      data: { photo },
       select: { id: true, photo: true },
     });
     res.json({ photo: updated.photo });

@@ -5,7 +5,7 @@ const { getProfile, getProfileBySlug, updateProfile, uploadPhoto, changePassword
 
 router.get('/me', requireAuth, getProfile);
 router.put('/me', requireAuth, updateProfile);
-router.post('/me/photo', requireAuth, upload.single('photo'), uploadPhoto);
+router.post('/me/photo', requireAuth, uploadPhoto);
 router.put('/me/password', requireAuth, changePassword);
 router.get('/me/posts', requireAuth, getUserPosts);
 router.get('/', getWriters);
