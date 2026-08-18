@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const { sendPostStatusEmail } = require('../lib/email');
+const { sendPostStatusEmail, sendWriterWelcomeEmail } = require('../lib/email');
 
 // ─── DASHBOARD STATS ─────────────────────────
 async function getStats(req, res) {
@@ -109,6 +109,9 @@ async function forceVerifyUser(req, res) {
       data: { emailVerified: true, verifyToken: null },
       select: { id: true, name: true, email: true, emailVerified: true },
     });
+    // Send writer welcome email (non-blocking)
+    sendWriterWelcomeEmail(updated.email, updated.name).catch(console.error);
+
     res.json({ message: `${updated.name}'s email has been verified`, user: updated });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

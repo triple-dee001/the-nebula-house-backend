@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { sendSubscriptionWelcomeEmail } = require('../lib/email');
 
 // ─── SUBSCRIBE TO NEWSLETTER ─────────────────
 async function subscribe(req, res) {
@@ -15,6 +16,9 @@ async function subscribe(req, res) {
         userId: req.user?.id || null,
       },
     });
+
+    // Send welcome email (non-blocking)
+    sendSubscriptionWelcomeEmail(email.toLowerCase(), name || '').catch(err => console.error('Subscription welcome email failed:', err));
 
     // Sync to Brevo contacts list (non-blocking)
     if (process.env.BREVO_API_KEY) {

@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../lib/prisma');
 const { signToken } = require('../lib/jwt');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email');
+const { sendVerificationEmail, sendPasswordResetEmail, sendWriterWelcomeEmail } = require('../lib/email');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const SUPER_ADMINS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -64,6 +64,9 @@ async function verifyEmail(req, res) {
       where: { id: user.id },
       data: { emailVerified: true, verifyToken: null },
     });
+
+    // Send writer welcome email (non-blocking)
+    sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
 
     // Redirect to site with success message
     res.redirect(`${process.env.FRONTEND_URL || '/'}?verified=true`);
@@ -155,6 +158,9 @@ async function googleAuth(req, res) {
           role,
         },
       });
+
+      // Send writer welcome email (non-blocking)
+      sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
     } else if (!user.googleId) {
       // Existing email user — link Google account
       user = await prisma.user.update({
