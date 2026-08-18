@@ -9,7 +9,7 @@ async function getProfile(req, res) {
       where: { id: req.params.id || req.user.id },
       select: {
         id: true, name: true, email: true, photo: true,
-        bio: true, role: true, slug: true, createdAt: true, emailVerified: true,
+        bio: true, role: true, slug: true, createdAt: true, emailVerified: true, isWriter: true,
         _count: { select: { posts: true } },
       },
     });
@@ -41,15 +41,16 @@ async function getProfileBySlug(req, res) {
 // ─── UPDATE PROFILE ───────────────────────────
 async function updateProfile(req, res) {
   try {
-    const { name, bio } = req.body;
+    const { name, bio, isWriter } = req.body;
     const data = {};
     if (name && name.trim()) data.name = name.trim();
     if (bio !== undefined) data.bio = bio.trim();
+    if (isWriter !== undefined) data.isWriter = isWriter === true || isWriter === 'true';
 
     const updated = await prisma.user.update({
       where: { id: req.user.id },
       data,
-      select: { id: true, name: true, email: true, photo: true, bio: true, role: true, emailVerified: true },
+      select: { id: true, name: true, email: true, photo: true, bio: true, role: true, emailVerified: true, isWriter: true },
     });
     res.json(updated);
   } catch (err) {
@@ -117,6 +118,7 @@ async function getUserPosts(req, res) {
 async function getWriters(req, res) {
   try {
     const users = await prisma.user.findMany({
+      where: { isWriter: true },
       select: {
         id: true,
         name: true,

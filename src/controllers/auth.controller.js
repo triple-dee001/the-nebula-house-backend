@@ -35,6 +35,7 @@ async function register(req, res) {
         password: hashed,
         role,
         verifyToken,
+        isWriter: req.body.isWriter === true || req.body.isWriter === 'true' || role === 'ADMIN' || role === 'SUPER_ADMIN',
       },
     });
 
