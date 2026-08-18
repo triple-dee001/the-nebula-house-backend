@@ -19,6 +19,8 @@ async function requireAuth(req, res, next) {
 }
 
 async function requireVerified(req, res, next) {
+  // Admins and super admins are never blocked by email verification
+  if (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN') return next();
   if (!req.user.emailVerified) {
     return res.status(403).json({ error: 'Please verify your email before continuing.' });
   }
@@ -39,4 +41,24 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireVerified, requireAdmin, requireSuperAdmin };
+// Allows the post/resource owner OR any admin/super_admin to proceed
+async function requireOwnerOrAdmin(req, res, next) {
+  try {
+    const post = await prisma.post.findUnique({ where: { id: req.params.id } });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (
+      req.user.role === 'ADMIN' ||
+      req.user.role === 'SUPER_ADMIN' ||
+      post.authorId === req.user.id
+    ) {
+      req.post = post; // attach for use in controller
+      return next();
+    }
+    return res.status(403).json({ error: 'Not authorized' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { requireAuth, requireVerified, requireAdmin, requireSuperAdmin, requireOwnerOrAdmin };
+

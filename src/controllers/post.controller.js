@@ -70,11 +70,15 @@ async function getPost(req, res) {
   }
 }
 
-// ─── CREATE POST ──────────────────────────────
+// ─── CREATE POST ────────────────────────────
 async function createPost(req, res) {
   try {
     const { title, subtitle, body, excerpt, tags, challengeId } = req.body;
     if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
+
+    // Admins publish directly; regular users go through review
+    const isAdminUser = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    const status = isAdminUser ? 'PUBLISHED' : 'PENDING';
 
     const post = await prisma.post.create({
       data: {
@@ -84,12 +88,14 @@ async function createPost(req, res) {
         excerpt: excerpt?.trim(),
         tags: tags?.trim(),
         authorId: req.user.id,
-        status: 'PENDING',
+        status,
+        approvedAt: isAdminUser ? new Date() : null,
         challengeId: challengeId || null,
       },
     });
 
-    res.status(201).json({ message: 'Story submitted for review', post });
+    const message = isAdminUser ? 'Story published!' : 'Story submitted for review';
+    res.status(201).json({ message, post });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -208,4 +214,16 @@ async function updatePost(req, res) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost };
+// ─── DELETE POST (Owner or Admin) ────────────────
+async function deletePost(req, res) {
+  try {
+    // req.post is set by requireOwnerOrAdmin middleware
+    const postId = req.post ? req.post.id : req.params.id;
+    await prisma.post.delete({ where: { id: postId } });
+    res.json({ message: 'Story deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost };

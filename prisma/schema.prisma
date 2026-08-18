@@ -14,6 +14,7 @@ model User {
   password        String?   // null for Google OAuth users
   googleId        String?   @unique
   role            String    @default("USER")
+  slug            String?   @unique  // URL-friendly identifier, e.g. "kelechi-oji"
   bio             String?
   photo           String?
   emailVerified   Boolean   @default(false)
@@ -43,6 +44,7 @@ model User {
 model Post {
   id          String      @id @default(uuid())
   title       String
+  slug        String?     @unique  // URL-friendly identifier for the post
   subtitle    String?
   body        String
   excerpt     String?

@@ -101,6 +101,20 @@ async function deleteUser(req, res) {
   }
 }
 
+// ─── FORCE VERIFY USER EMAIL ─────────────────
+async function forceVerifyUser(req, res) {
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { emailVerified: true, verifyToken: null },
+      select: { id: true, name: true, email: true, emailVerified: true },
+    });
+    res.json({ message: `${updated.name}'s email has been verified`, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
 // ─── ALL POSTS (any status) ───────────────────
 async function getAllPosts(req, res) {
   try {
@@ -218,7 +232,7 @@ async function toggleUserMentor(req, res) {
 }
 
 module.exports = {
-  getStats, getAllUsers, updateUserRole, deleteUser,
+  getStats, getAllUsers, updateUserRole, deleteUser, forceVerifyUser,
   getAllPosts, approvePost, rejectPost, deletePost,
   getNewsletter, getNominations, toggleUserMentor,
 };

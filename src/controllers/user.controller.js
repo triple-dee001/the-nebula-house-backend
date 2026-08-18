@@ -9,11 +9,29 @@ async function getProfile(req, res) {
       where: { id: req.params.id || req.user.id },
       select: {
         id: true, name: true, email: true, photo: true,
-        bio: true, role: true, createdAt: true, emailVerified: true,
+        bio: true, role: true, slug: true, createdAt: true, emailVerified: true,
         _count: { select: { posts: true } },
       },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// ─── GET PROFILE BY SLUG ───────────────────
+async function getProfileBySlug(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { slug: req.params.slug },
+      select: {
+        id: true, name: true, photo: true,
+        bio: true, role: true, slug: true, createdAt: true,
+        _count: { select: { posts: { where: { status: 'PUBLISHED' } } } },
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'Writer not found' });
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -105,6 +123,7 @@ async function getWriters(req, res) {
         photo: true,
         bio: true,
         role: true,
+        slug: true,
         createdAt: true,
         _count: { select: { posts: { where: { status: 'PUBLISHED' } } } },
       },
@@ -117,4 +136,4 @@ async function getWriters(req, res) {
   }
 }
 
-module.exports = { getProfile, updateProfile, uploadPhoto, changePassword, getUserPosts, getWriters };
+module.exports = { getProfile, getProfileBySlug, updateProfile, uploadPhoto, changePassword, getUserPosts, getWriters };
