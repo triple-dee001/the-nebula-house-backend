@@ -40,6 +40,36 @@ async function sendEmail({ to, subject, html }) {
   return res.json();
 }
 
+async function sendTemplateEmail({ to, templateId, params = {} }) {
+  if (!process.env.BREVO_API_KEY) {
+    console.log('\n┌───────────── MOCK TEMPLATE EMAIL SENT ─────────────┐');
+    console.log(`│ TO:          ${to}`);
+    console.log(`│ TEMPLATE ID: ${templateId}`);
+    console.log(`│ PARAMS:      ${JSON.stringify(params)}`);
+    console.log('└────────────────────────────────────────────────────┘\n');
+    return;
+  }
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'accept': 'application/json',
+      'api-key': process.env.BREVO_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: [{ email: to }],
+      templateId: parseInt(templateId),
+      params,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error('Brevo template send error:', err);
+    throw new Error(err.message || 'Failed to send template email');
+  }
+  return res.json();
+}
+
 // ─── EMAIL TEMPLATE WRAPPER ───────────────────
 function wrapTemplate(headerTitle, bodyHtml) {
   return `
@@ -130,19 +160,15 @@ async function sendPostStatusEmail(email, name, title, status, reason) {
 }
 
 async function sendSubscriptionWelcomeEmail(email, name) {
-  const html = wrapTemplate('Welcome to the House', `
-    <p>Dear ${name || 'Reader'},</p>
-    <p>It is our privilege to welcome you to The Nebula House.</p>
-    <p>You have successfully subscribed to our digital journal. In the days to come, prepare to receive essays, book recommendations, creative insights, and stories delivered directly to your inbox.</p>
-    <p>We invite you to join us on this intellectual and artistic journey.</p>
-    <p style="margin-top: 2.5rem; font-style: italic; color: #aaa;">From Imagination to Infinity,</p>
-    <p style="font-weight: bold; letter-spacing: 1px; color: #ffffff; margin: 0.25rem 0 0 0;">THE NEBULA HOUSE</p>
-  `);
-
-  await sendEmail({
+  // Use Brevo Transactional Template ID 2 for newsletter signups
+  await sendTemplateEmail({
     to: email,
-    subject: 'Welcome to The Nebula House!',
-    html,
+    templateId: 2,
+    params: {
+      name: name || 'Reader',
+      FIRSTNAME: name || 'Reader',
+      NAME: name || 'Reader'
+    }
   });
 }
 
