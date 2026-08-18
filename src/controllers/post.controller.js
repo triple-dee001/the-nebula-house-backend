@@ -73,7 +73,7 @@ async function getPost(req, res) {
 // ─── CREATE POST ────────────────────────────
 async function createPost(req, res) {
   try {
-    const { title, subtitle, body, excerpt, tags, challengeId } = req.body;
+    const { title, subtitle, body, excerpt, tags, challengeId, coverImage } = req.body;
     if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
 
     // Admins publish directly; regular users go through review
@@ -87,6 +87,7 @@ async function createPost(req, res) {
         body,
         excerpt: excerpt?.trim(),
         tags: tags?.trim(),
+        coverImage: coverImage?.trim() || null,
         authorId: req.user.id,
         status,
         approvedAt: isAdminUser ? new Date() : null,
@@ -178,7 +179,7 @@ async function getMyPosts(req, res) {
 async function updatePost(req, res) {
   try {
     const { id } = req.params;
-    const { title, subtitle, body, excerpt, tags, challengeId } = req.body;
+    const { title, subtitle, body, excerpt, tags, challengeId, coverImage } = req.body;
     if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
 
     const post = await prisma.post.findUnique({ where: { id } });
@@ -201,6 +202,7 @@ async function updatePost(req, res) {
         body,
         excerpt: excerpt?.trim(),
         tags: tags?.trim(),
+        coverImage: coverImage !== undefined ? (coverImage?.trim() || null) : undefined,
         challengeId: challengeId || null,
         status: newStatus,
         rejectReason: null,
