@@ -25,6 +25,12 @@ async function generateUniqueSlug(title) {
   return slug;
 }
 
+function extractFirstImage(html) {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
 // ─── GET ALL PUBLISHED POSTS ──────────────────
 async function getPosts(req, res) {
   try {
@@ -120,7 +126,7 @@ async function createPost(req, res) {
         body,
         excerpt: excerpt?.trim(),
         tags: tags?.trim(),
-        coverImage: coverImage?.trim() || null,
+        coverImage: coverImage?.trim() || extractFirstImage(body) || null,
         authorId: req.user.id,
         status,
         approvedAt: isAdminUser ? new Date() : null,
@@ -239,7 +245,7 @@ async function updatePost(req, res) {
         body,
         excerpt: excerpt?.trim(),
         tags: tags?.trim(),
-        coverImage: coverImage !== undefined ? (coverImage?.trim() || null) : undefined,
+        coverImage: coverImage?.trim() || extractFirstImage(body) || null,
         challengeId: challengeId || null,
         status: newStatus,
         rejectReason: null,
