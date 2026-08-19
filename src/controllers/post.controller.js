@@ -41,7 +41,7 @@ async function getPosts(req, res) {
         select: {
           id: true, title: true, subtitle: true, excerpt: true,
           tags: true, coverImage: true, views: true, createdAt: true,
-          author: { select: { id: true, name: true, photo: true } },
+          author: { select: { id: true, name: true } },
           _count: { select: { likes: true, comments: true } },
         },
       }),
