@@ -1,5 +1,30 @@
 const prisma = require('../lib/prisma');
 
+function slugify(text) {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-');
+}
+
+async function generateUniqueSlug(title) {
+  let baseSlug = slugify(title);
+  if (!baseSlug) baseSlug = 'story';
+  
+  let slug = baseSlug;
+  let count = 1;
+  while (true) {
+    const existing = await prisma.post.findFirst({ where: { slug } });
+    if (!existing) break;
+    slug = `${baseSlug}-${count}`;
+    count++;
+  }
+  return slug;
+}
+
 // ─── GET ALL PUBLISHED POSTS ──────────────────
 async function getPosts(req, res) {
   try {
@@ -32,8 +57,14 @@ async function getPosts(req, res) {
 // ─── GET SINGLE POST ──────────────────────────
 async function getPost(req, res) {
   try {
-    const post = await prisma.post.findUnique({
-      where: { id: req.params.id },
+    const { id } = req.params;
+    const post = await prisma.post.findFirst({
+      where: {
+        OR: [
+          { id },
+          { slug: id }
+        ]
+      },
       include: {
         author: { select: { id: true, name: true, photo: true, bio: true } },
         comments: {
@@ -80,9 +111,11 @@ async function createPost(req, res) {
     const isAdminUser = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
     const status = isAdminUser ? 'PUBLISHED' : 'PENDING';
 
+    const slug = await generateUniqueSlug(title);
     const post = await prisma.post.create({
       data: {
         title: title.trim(),
+        slug,
         subtitle: subtitle?.trim(),
         body,
         excerpt: excerpt?.trim(),
@@ -228,4 +261,58 @@ async function deletePost(req, res) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost };
+async function getSharePage(req, res) {
+  try {
+    const { slug } = req.params;
+    const post = await prisma.post.findFirst({
+      where: { slug, status: 'PUBLISHED' },
+      include: { author: { select: { name: true } } },
+    });
+
+    if (!post) {
+      return res.redirect('https://thenebulahouse.com/');
+    }
+
+    const title = post.title;
+    const description = post.excerpt || post.subtitle || 'A story from The Nebula House ecosystem.';
+    const imageUrl = post.coverImage || 'https://thenebulahouse.com/assets/images/room-icon.png';
+    const postUrl = `https://thenebulahouse.com/story/${post.slug}`;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${title} | The Nebula House</title>
+  
+  <!-- OpenGraph Metadata -->
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:url" content="${postUrl}">
+  <meta property="og:type" content="article">
+  
+  <!-- Twitter Card Metadata -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${imageUrl}">
+  
+  <!-- Automatic Redirect Script -->
+  <script>
+    window.location.replace("https://thenebulahouse.com/story.html?slug=${post.slug}");
+  </script>
+</head>
+<body style="background:#000; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
+  <p>Redirecting to The Nebula House...</p>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) {
+    console.error('Share page rendering error:', err);
+    res.redirect('https://thenebulahouse.com/');
+  }
+}
+
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage };
