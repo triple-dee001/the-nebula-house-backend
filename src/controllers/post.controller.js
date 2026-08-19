@@ -128,6 +128,10 @@ async function createPost(req, res) {
       },
     });
 
+    if (status === 'PUBLISHED') {
+      notifyFollowersOfNewPost(post.id).catch(err => console.error('Failed to notify followers on direct post:', err));
+    }
+
     const message = isAdminUser ? 'Story published!' : 'Story submitted for review';
     res.status(201).json({ message, post });
   } catch (err) {
@@ -315,4 +319,40 @@ async function getSharePage(req, res) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage };
+async function notifyFollowersOfNewPost(postId) {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: { author: true }
+    });
+    if (!post || post.status !== 'PUBLISHED') return;
+
+    const { sendFollowerNewPostEmail } = require('../lib/email');
+
+    const follows = await prisma.follow.findMany({
+      where: { followingId: post.authorId },
+      include: { follower: true }
+    });
+
+    console.log(`Notifying ${follows.length} followers of new post "${post.title}" by ${post.author.name}`);
+
+    for (const f of follows) {
+      await prisma.notification.create({
+        data: {
+          userId: f.followerId,
+          type: 'POST_STATUS',
+          title: 'New Story Published',
+          message: `${post.author.name} published a new story: "${post.title}"`,
+        }
+      }).catch(err => console.error('Failed to create follower in-app notification:', err));
+
+      sendFollowerNewPostEmail(f.follower.email, f.follower.name, post.author.name, post.title, post.slug).catch(err => {
+        console.error(`Failed to send email alert to follower ${f.follower.email}:`, err);
+      });
+    }
+  } catch (err) {
+    console.error('Failed to notify followers of new post:', err);
+  }
+}
+
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage, notifyFollowersOfNewPost };

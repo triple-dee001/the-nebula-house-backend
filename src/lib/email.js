@@ -211,6 +211,24 @@ async function sendMentorshipRequestEmail(email, name, menteeName, messageText) 
   });
 }
 
+async function sendFollowerNewPostEmail(email, name, authorName, postTitle, postSlug) {
+  const postUrl = `${BASE_URL}/story/${postSlug}`;
+  const html = wrapTemplate('New Story Alert', `
+    <p>Dear ${name},</p>
+    <p><strong style="color: #ffffff;">${authorName}</strong>, whom you follow at The Nebula House, has just published a brand new story: <strong style="color: #ffffff;">"${postTitle}"</strong>.</p>
+    <div style="text-align: center; margin: 2.5rem 0;">
+      <a href="${postUrl}" style="display: inline-block; background: #ffffff; color: #000000; padding: 0.85rem 2.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">Read Story</a>
+    </div>
+    <p>We hope you enjoy the read!</p>
+  `);
+
+  await sendEmail({
+    to: email,
+    subject: `New Story from ${authorName}: "${postTitle}"`,
+    html,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -218,4 +236,5 @@ module.exports = {
   sendSubscriptionWelcomeEmail,
   sendWriterWelcomeEmail,
   sendMentorshipRequestEmail,
+  sendFollowerNewPostEmail,
 };

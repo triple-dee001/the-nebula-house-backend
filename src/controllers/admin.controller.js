@@ -169,6 +169,10 @@ async function approvePost(req, res) {
       }
     }).catch(err => console.error('Failed to create approve notification:', err));
 
+    // Notify followers
+    const { notifyFollowersOfNewPost } = require('./post.controller');
+    notifyFollowersOfNewPost(post.id).catch(err => console.error('Failed to notify followers on approval:', err));
+
     res.json({ message: 'Post approved and published', post });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
