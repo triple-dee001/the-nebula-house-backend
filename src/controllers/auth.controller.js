@@ -69,6 +69,27 @@ async function verifyEmail(req, res) {
     // Send writer welcome email (non-blocking)
     sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
 
+    // Notify admins about new writer registration
+    if (user.isWriter) {
+      try {
+        const admins = await prisma.user.findMany({
+          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } }
+        });
+        for (const admin of admins) {
+          await prisma.notification.create({
+            data: {
+              userId: admin.id,
+              type: 'SYSTEM',
+              title: 'New Writer Registered',
+              message: `${user.name} (${user.email}) has registered as a writer.`,
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Failed to notify admins of new writer:', err);
+      }
+    }
+
     // Redirect to site with success message
     res.redirect(`${process.env.FRONTEND_URL || '/'}?verified=true`);
   } catch (err) {
@@ -157,11 +178,31 @@ async function googleAuth(req, res) {
           photo: picture,
           emailVerified: true, // Google already verified
           role,
+          isWriter: true,
         },
       });
 
       // Send writer welcome email (non-blocking)
       sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
+
+      // Notify admins about new writer registration
+      try {
+        const admins = await prisma.user.findMany({
+          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } }
+        });
+        for (const admin of admins) {
+          await prisma.notification.create({
+            data: {
+              userId: admin.id,
+              type: 'SYSTEM',
+              title: 'New Writer Registered (Google)',
+              message: `${user.name} (${user.email}) has registered via Google.`,
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Failed to notify admins of Google writer signup:', err);
+      }
     } else if (!user.googleId) {
       // Existing email user — link Google account
       user = await prisma.user.update({

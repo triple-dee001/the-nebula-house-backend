@@ -60,5 +60,22 @@ async function requireOwnerOrAdmin(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requireVerified, requireAdmin, requireSuperAdmin, requireOwnerOrAdmin };
+async function optionalAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      const token = header.split(' ')[1];
+      const payload = verifyToken(token);
+      const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+      if (user) {
+        req.user = user;
+      }
+    }
+    next();
+  } catch (err) {
+    next();
+  }
+}
+
+module.exports = { requireAuth, requireVerified, requireAdmin, requireSuperAdmin, requireOwnerOrAdmin, optionalAuth };
 

@@ -70,6 +70,7 @@ app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/api/users', require('./src/routes/user.routes'));
 app.use('/api/posts', require('./src/routes/post.routes'));
 app.use('/api/admin', require('./src/routes/admin.routes'));
+app.use('/api/notifications', require('./src/routes/notification.routes'));
 app.use('/api/ai', require('./src/routes/ai.routes'));
 app.use('/api/challenges', require('./src/routes/challenge.routes'));
 app.use('/api/mentorship', require('./src/routes/mentorship.routes'));

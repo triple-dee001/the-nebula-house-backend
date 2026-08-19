@@ -190,10 +190,32 @@ async function sendWriterWelcomeEmail(email, name) {
   });
 }
 
+async function sendMentorshipRequestEmail(email, name, menteeName, messageText) {
+  const html = wrapTemplate('Mentorship Request', `
+    <p>Dear ${name},</p>
+    <p>You have received a new mentorship request from <strong style="color: #ffffff;">${menteeName}</strong> in The Writer's Room.</p>
+    <p>They left you the following message:</p>
+    <div style="background: rgba(255,255,255,0.03); border-left: 3px solid #ffffff; padding: 1.25rem; margin: 1.5rem 0; color: #dddddd; font-style: italic; font-size: 0.95rem; line-height: 1.6;">
+      "${messageText || 'No message provided.'}"
+    </div>
+    <p>Please log in to your account and navigate to The Writer's Room under "Author Mentorship" to accept or decline this request.</p>
+    <div style="text-align: center; margin: 2.5rem 0;">
+      <a href="${BASE_URL}/the-writers-room.html" style="display: inline-block; background: #ffffff; color: #000000; padding: 0.85rem 2.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">View Requests</a>
+    </div>
+  `);
+
+  await sendEmail({
+    to: email,
+    subject: `New Mentorship Request from ${menteeName}`,
+    html,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendPostStatusEmail,
   sendSubscriptionWelcomeEmail,
   sendWriterWelcomeEmail,
+  sendMentorshipRequestEmail,
 };

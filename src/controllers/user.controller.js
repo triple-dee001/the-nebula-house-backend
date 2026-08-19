@@ -5,8 +5,9 @@ const prisma = require('../lib/prisma');
 // ─── GET PROFILE ──────────────────────────────
 async function getProfile(req, res) {
   try {
+    const targetId = req.params.id || req.user.id;
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id || req.user.id },
+      where: { id: targetId },
       select: {
         id: true, name: true, email: true, photo: true,
         bio: true, role: true, slug: true, createdAt: true, emailVerified: true, isWriter: true,
@@ -14,8 +15,25 @@ async function getProfile(req, res) {
       },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+
+    // Fetch follow counts
+    const followersCount = await prisma.follow.count({ where: { followingId: targetId } });
+    const followingCount = await prisma.follow.count({ where: { followerId: targetId } });
+
+    // Check if the current user is following the target user
+    let following = false;
+    if (req.user && req.user.id !== targetId) {
+      const isFollowing = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: { followerId: req.user.id, followingId: targetId },
+        },
+      });
+      following = !!isFollowing;
+    }
+
+    res.json({ ...user, followersCount, followingCount, following });
   } catch (err) {
+    console.error('getProfile error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -32,8 +50,26 @@ async function getProfileBySlug(req, res) {
       },
     });
     if (!user) return res.status(404).json({ error: 'Writer not found' });
-    res.json(user);
+
+    const targetId = user.id;
+    // Fetch follow counts
+    const followersCount = await prisma.follow.count({ where: { followingId: targetId } });
+    const followingCount = await prisma.follow.count({ where: { followerId: targetId } });
+
+    // Check if the current user is following the target user
+    let following = false;
+    if (req.user && req.user.id !== targetId) {
+      const isFollowing = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: { followerId: req.user.id, followingId: targetId },
+        },
+      });
+      following = !!isFollowing;
+    }
+
+    res.json({ ...user, followersCount, followingCount, following });
   } catch (err) {
+    console.error('getProfileBySlug error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }

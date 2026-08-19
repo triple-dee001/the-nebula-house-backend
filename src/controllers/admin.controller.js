@@ -156,8 +156,19 @@ async function approvePost(req, res) {
       data: { status: 'PUBLISHED', approvedAt: new Date(), rejectReason: null },
       include: { author: true },
     });
-    // Notify author
+    // Notify author via email
     sendPostStatusEmail(post.author.email, post.author.name, post.title, 'PUBLISHED').catch(console.error);
+    
+    // Notify author via in-app notification
+    await prisma.notification.create({
+      data: {
+        userId: post.authorId,
+        type: 'POST_STATUS',
+        title: 'Story Approved',
+        message: `Your story "${post.title}" has been approved and is now live!`,
+      }
+    }).catch(err => console.error('Failed to create approve notification:', err));
+
     res.json({ message: 'Post approved and published', post });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -173,7 +184,19 @@ async function rejectPost(req, res) {
       data: { status: 'REJECTED', rejectReason: reason || null },
       include: { author: true },
     });
+    // Notify author via email
     sendPostStatusEmail(post.author.email, post.author.name, post.title, 'REJECTED', reason).catch(console.error);
+
+    // Notify author via in-app notification
+    await prisma.notification.create({
+      data: {
+        userId: post.authorId,
+        type: 'POST_STATUS',
+        title: 'Story Review Update',
+        message: `Your story "${post.title}" was not approved. Reason: ${reason || 'No reason provided.'}`,
+      }
+    }).catch(err => console.error('Failed to create reject notification:', err));
+
     res.json({ message: 'Post rejected', post });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

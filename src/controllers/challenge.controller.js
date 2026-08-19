@@ -33,6 +33,26 @@ async function createChallenge(req, res) {
         endDate: new Date(endDate),
       }
     });
+
+    // Notify all users about the new challenge
+    try {
+      const users = await prisma.user.findMany({
+        select: { id: true }
+      });
+      for (const u of users) {
+        await prisma.notification.create({
+          data: {
+            userId: u.id,
+            type: 'CHALLENGE',
+            title: 'New Monthly Challenge!',
+            message: `A new writing challenge "${title.trim()}" is now active! Theme: "${theme.trim()}"`,
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to notify users of challenge:', err);
+    }
+
     res.status(201).json(challenge);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

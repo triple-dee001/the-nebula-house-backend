@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { sendMentorshipRequestEmail } = require('../lib/email');
 
 async function getMentors(req, res) {
   try {
@@ -46,6 +47,19 @@ async function requestMentorship(req, res) {
         message: message?.trim(),
       }
     });
+
+    // Notify mentor via email
+    sendMentorshipRequestEmail(mentor.email, mentor.name, req.user.name, message?.trim()).catch(console.error);
+
+    // Notify mentor via in-app notification
+    await prisma.notification.create({
+      data: {
+        userId: mentorId,
+        type: 'MENTORSHIP',
+        title: 'New Mentorship Request',
+        message: `${req.user.name} has requested you as a mentor. Message: "${message?.trim() || ''}"`,
+      }
+    }).catch(err => console.error('Failed to create mentorship notification:', err));
 
     res.status(201).json({ message: 'Mentorship request sent successfully', request });
   } catch (err) {
