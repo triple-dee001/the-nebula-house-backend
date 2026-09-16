@@ -278,18 +278,76 @@ async function deletePost(req, res) {
   }
 }
 
+function extractFirstImageSrc(html) {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
+// ─── SHARE IMAGE ENDPOINT (Serves real HTTP image for WhatsApp/Twitter cards) ───
+async function getPostShareImage(req, res) {
+  try {
+    const { slug } = req.params;
+    let post = await prisma.post.findFirst({
+      where: { slug },
+      include: { author: { select: { photo: true } } },
+    });
+
+    if (!post) {
+      post = await prisma.post.findFirst({
+        where: { id: slug },
+        include: { author: { select: { photo: true } } },
+      });
+    }
+
+    let rawImg = post?.coverImage || extractFirstImageSrc(post?.body) || post?.author?.photo;
+
+    if (!rawImg) {
+      return res.redirect('https://thenebulahouse.com/assets/images/room-icon.png');
+    }
+
+    // Handle Base64 images (convert to binary image response for social crawlers)
+    if (rawImg.startsWith('data:image/')) {
+      const parts = rawImg.split(';base64,');
+      const mime = parts[0].replace('data:', '') || 'image/jpeg';
+      const base64Data = parts[1];
+      if (base64Data) {
+        const buffer = Buffer.from(base64Data, 'base64');
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
+    }
+
+    // Handle Absolute HTTP/HTTPS URLs
+    if (rawImg.startsWith('http://') || rawImg.startsWith('https://')) {
+      return res.redirect(rawImg);
+    }
+
+    // Handle Relative local paths
+    if (rawImg.startsWith('/')) {
+      return res.redirect(`https://thenebulahouse.com${rawImg}`);
+    }
+
+    return res.redirect(`https://thenebulahouse.com/${rawImg}`);
+  } catch (err) {
+    console.error('Share image endpoint error:', err);
+    res.redirect('https://thenebulahouse.com/assets/images/room-icon.png');
+  }
+}
+
 async function getSharePage(req, res) {
   try {
     const { slug } = req.params;
     let post = await prisma.post.findFirst({
       where: { slug, status: 'PUBLISHED' },
-      include: { author: { select: { name: true } } },
+      include: { author: { select: { name: true, slug: true } } },
     });
 
     if (!post) {
       post = await prisma.post.findFirst({
         where: { id: slug, status: 'PUBLISHED' },
-        include: { author: { select: { name: true } } },
+        include: { author: { select: { name: true, slug: true } } },
       });
     }
 
@@ -297,45 +355,68 @@ async function getSharePage(req, res) {
       return res.redirect('https://thenebulahouse.com/the-writers-room');
     }
 
-    const title = post.title;
-    const description = post.excerpt || post.subtitle || 'A story from The Nebula House ecosystem.';
-    const imageUrl = post.coverImage || 'https://thenebulahouse.com/assets/images/room-icon.png';
-    const postUrl = `https://thenebulahouse.com/story/${post.slug}`;
+    // Clean title and description strings
+    const cleanTitle = (post.title || 'Story')
+      .replace(/&amp;/g, '&')
+      .replace(/&#x27;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+
+    const rawDesc = post.excerpt || post.subtitle || (post.body ? post.body.replace(/<[^>]+>/g, '').slice(0, 160) : 'A story from The Nebula House.');
+    const cleanDesc = rawDesc
+      .replace(/&amp;/g, '&')
+      .replace(/&#x27;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+
+    // Dedicated public HTTPS image endpoint for WhatsApp/Twitter/Facebook social cards
+    const shareImageUrl = `https://the-nebula-house-backend.onrender.com/api/posts/share-image/${post.slug || post.id}`;
+    const authorSlug = post.author?.slug || 'author';
+    const postUrl = `https://thenebulahouse.com/story/${authorSlug}/${post.slug || post.id}`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${title} | The Nebula House</title>
-  
-  <!-- OpenGraph Metadata -->
-  <meta property="og:title" content="${title}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${imageUrl}">
+  <title>${cleanTitle} | The Nebula House</title>
+
+  <!-- OpenGraph Metadata for WhatsApp, Facebook, iMessage, LinkedIn -->
+  <meta property="og:site_name" content="The Nebula House">
+  <meta property="og:title" content="${cleanTitle}">
+  <meta property="og:description" content="${cleanDesc}">
+  <meta property="og:image" content="${shareImageUrl}">
+  <meta property="og:image:secure_url" content="${shareImageUrl}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:url" content="${postUrl}">
   <meta property="og:type" content="article">
-  
+
   <!-- Twitter Card Metadata -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${title}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${imageUrl}">
-  
-  <!-- Automatic Redirect Script -->
+  <meta name="twitter:site" content="@the_nebula_house">
+  <meta name="twitter:title" content="${cleanTitle}">
+  <meta name="twitter:description" content="${cleanDesc}">
+  <meta name="twitter:image" content="${shareImageUrl}">
+
+  <!-- Automatic Client Redirect -->
   <script>
-    window.location.replace("https://thenebulahouse.com/story.html?slug=${post.slug}");
+    window.location.replace("${postUrl}");
   </script>
 </head>
-<body style="background:#000; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
-  <p>Redirecting to The Nebula House...</p>
+<body style="background:#0a0a0a; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
+  <p>Redirecting to ${cleanTitle}...</p>
 </body>
 </html>`;
 
-    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
     console.error('Share page rendering error:', err);
-    res.redirect('https://thenebulahouse.com/');
+    res.redirect('https://thenebulahouse.com/the-writers-room');
   }
 }
 
@@ -375,4 +456,4 @@ async function notifyFollowersOfNewPost(postId) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage, notifyFollowersOfNewPost };
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage, getPostShareImage, notifyFollowersOfNewPost };
