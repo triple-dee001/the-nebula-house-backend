@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -9,6 +10,9 @@ const app = express();
 
 // Enable trust proxy for rate limiting behind Render's load balancer
 app.set('trust proxy', 1);
+
+// Enable gzip/brotli payload compression
+app.use(compression());
 
 // ─── SECURITY ─────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
