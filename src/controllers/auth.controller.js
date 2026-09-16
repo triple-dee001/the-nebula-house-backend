@@ -12,10 +12,31 @@ function getRoleForEmail(email) {
   return SUPER_ADMINS.includes(email.toLowerCase()) ? 'SUPER_ADMIN' : 'USER';
 }
 
+function slugifyText(text) {
+  if (!text) return 'writer';
+  return text.toString().toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function generateUniqueAuthorSlug(name) {
+  let baseSlug = slugifyText(name) || 'writer';
+  let slug = baseSlug;
+  let count = 1;
+  while (true) {
+    const existing = await prisma.user.findFirst({ where: { slug } });
+    if (!existing) break;
+    slug = `${baseSlug}-${count}`;
+    count++;
+  }
+  return slug;
+}
+
 // ─── REGISTER ────────────────────────────────
 async function register(req, res) {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, accountType } = req.body;
     if (!name || !email || !password)
       return res.status(400).json({ error: 'Name, email and password are required' });
     if (password.length < 8)
@@ -26,7 +47,17 @@ async function register(req, res) {
 
     const hashed = await bcrypt.hash(password, 12);
     const verifyToken = uuidv4();
-    const role = getRoleForEmail(email);
+
+    const isWriter = accountType === 'writer' || req.body.isWriter === true || req.body.isWriter === 'true';
+    let role = getRoleForEmail(email);
+    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+      role = isWriter ? 'WRITER' : 'USER';
+    }
+
+    let slug = null;
+    if (isWriter) {
+      slug = await generateUniqueAuthorSlug(name);
+    }
 
     const user = await prisma.user.create({
       data: {
@@ -35,7 +66,8 @@ async function register(req, res) {
         password: hashed,
         role,
         verifyToken,
-        isWriter: req.body.isWriter === true || req.body.isWriter === 'true' || role === 'ADMIN' || role === 'SUPER_ADMIN',
+        isWriter,
+        slug,
       },
     });
 
@@ -169,7 +201,18 @@ async function googleAuth(req, res) {
 
     if (!user) {
       // New user via Google
-      const role = getRoleForEmail(email);
+      const accountType = req.body.accountType || (req.body.isWriter ? 'writer' : 'reader');
+      const isWriter = accountType === 'writer' || req.body.isWriter === true || req.body.isWriter === 'true';
+      let role = getRoleForEmail(email);
+      if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+        role = isWriter ? 'WRITER' : 'USER';
+      }
+
+      let slug = null;
+      if (isWriter) {
+        slug = await generateUniqueAuthorSlug(name);
+      }
+
       user = await prisma.user.create({
         data: {
           name,
@@ -178,7 +221,8 @@ async function googleAuth(req, res) {
           photo: picture,
           emailVerified: true, // Google already verified
           role,
-          isWriter: true,
+          isWriter,
+          slug,
         },
       });
 

@@ -81,15 +81,37 @@ async function updateProfile(req, res) {
     const data = {};
     if (name && name.trim()) data.name = name.trim();
     if (bio !== undefined) data.bio = bio.trim();
-    if (isWriter !== undefined) data.isWriter = isWriter === true || isWriter === 'true';
+    if (isWriter !== undefined) {
+      const boolWriter = isWriter === true || isWriter === 'true';
+      data.isWriter = boolWriter;
+      if (boolWriter) {
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+          data.role = 'WRITER';
+        }
+        if (!req.user.slug || !req.user.slug.trim()) {
+          const userName = name && name.trim() ? name.trim() : req.user.name;
+          let baseSlug = userName.toString().toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || 'writer';
+          let slug = baseSlug;
+          let count = 1;
+          while (true) {
+            const existing = await prisma.user.findFirst({ where: { slug } });
+            if (!existing) break;
+            slug = `${baseSlug}-${count}`;
+            count++;
+          }
+          data.slug = slug;
+        }
+      }
+    }
 
     const updated = await prisma.user.update({
       where: { id: req.user.id },
       data,
-      select: { id: true, name: true, email: true, photo: true, bio: true, role: true, emailVerified: true, isWriter: true },
+      select: { id: true, name: true, email: true, photo: true, bio: true, role: true, slug: true, emailVerified: true, isWriter: true },
     });
     res.json(updated);
   } catch (err) {
+    console.error('Update profile error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
