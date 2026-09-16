@@ -65,7 +65,7 @@ async function getAllUsers(req, res) {
 async function updateUserRole(req, res) {
   try {
     const { role } = req.body;
-    const validRoles = ['USER', 'ADMIN', 'SUPER_ADMIN'];
+    const validRoles = ['USER', 'WRITER', 'ADMIN', 'SUPER_ADMIN'];
     if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
 
     // Prevent demoting yourself
@@ -78,13 +78,61 @@ async function updateUserRole(req, res) {
       return res.status(403).json({ error: 'Only super admins can assign super admin role' });
     }
 
+    const isWriter = role === 'WRITER' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: { role },
-      select: { id: true, name: true, email: true, role: true },
+      data: { role, isWriter },
+      select: { id: true, name: true, email: true, role: true, isWriter: true },
     });
     res.json(updated);
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// ─── TOGGLE / UPDATE USER WRITER STATUS ─────────
+async function updateUserWriterStatus(req, res) {
+  try {
+    const { isWriter } = req.body;
+    if (isWriter === undefined) return res.status(400).json({ error: 'isWriter field is required' });
+
+    const boolWriter = isWriter === true || isWriter === 'true';
+
+    const targetUser = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    let newRole = targetUser.role;
+    if (newRole !== 'ADMIN' && newRole !== 'SUPER_ADMIN') {
+      newRole = boolWriter ? 'WRITER' : 'USER';
+    }
+
+    let slug = targetUser.slug;
+    if (boolWriter && (!slug || !slug.trim())) {
+      const baseSlug = targetUser.name.toString().toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || 'writer';
+      slug = baseSlug;
+      let count = 1;
+      while (true) {
+        const existing = await prisma.user.findFirst({ where: { slug } });
+        if (!existing) break;
+        slug = `${baseSlug}-${count}`;
+        count++;
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: req.params.id },
+      data: {
+        isWriter: boolWriter,
+        role: newRole,
+        slug,
+      },
+      select: { id: true, name: true, email: true, role: true, isWriter: true, slug: true },
+    });
+
+    res.json({ message: `${updated.name} is now a ${boolWriter ? 'Writer' : 'Reader'}`, user: updated });
+  } catch (err) {
+    console.error('updateUserWriterStatus error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -262,7 +310,7 @@ async function toggleUserMentor(req, res) {
 }
 
 module.exports = {
-  getStats, getAllUsers, updateUserRole, deleteUser, forceVerifyUser,
+  getStats, getAllUsers, updateUserRole, updateUserWriterStatus, deleteUser, forceVerifyUser,
   getAllPosts, approvePost, rejectPost, deletePost,
   getNewsletter, getNominations, toggleUserMentor,
 };
