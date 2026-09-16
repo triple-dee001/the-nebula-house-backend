@@ -237,10 +237,17 @@ async function updatePost(req, res) {
     // keep as PUBLISHED if edited by an admin.
     const newStatus = (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN') ? 'PUBLISHED' : 'PENDING';
 
+    // If title changed or slug missing, generate new slug
+    let slug = post.slug;
+    if (title.trim() !== post.title || !slug) {
+      slug = await generateUniqueSlug(title.trim());
+    }
+
     const updated = await prisma.post.update({
       where: { id },
       data: {
         title: title.trim(),
+        slug,
         subtitle: subtitle?.trim(),
         body,
         excerpt: excerpt?.trim(),
@@ -274,13 +281,20 @@ async function deletePost(req, res) {
 async function getSharePage(req, res) {
   try {
     const { slug } = req.params;
-    const post = await prisma.post.findFirst({
+    let post = await prisma.post.findFirst({
       where: { slug, status: 'PUBLISHED' },
       include: { author: { select: { name: true } } },
     });
 
     if (!post) {
-      return res.redirect('https://thenebulahouse.com/');
+      post = await prisma.post.findFirst({
+        where: { id: slug, status: 'PUBLISHED' },
+        include: { author: { select: { name: true } } },
+      });
+    }
+
+    if (!post) {
+      return res.redirect('https://thenebulahouse.com/the-writers-room');
     }
 
     const title = post.title;
