@@ -404,7 +404,7 @@ async function getSharePage(req, res) {
 
   <!-- Automatic Client Redirect -->
   <script>
-    window.location.replace("${postUrl}");
+    window.location.replace("https://thenebulahouse.com/story.html?author=${authorSlug}&slug=${post.slug || post.id}");
   </script>
 </head>
 <body style="background:#0a0a0a; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
