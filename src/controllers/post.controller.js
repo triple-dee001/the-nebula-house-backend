@@ -218,7 +218,7 @@ async function toggleLike(req, res) {
     return res.json({ liked, count });
   } catch (err) {
     console.error('Toggle like error:', err);
-    res.status(500).json({ error: err.message || 'Server error' });
+    res.status(500).json({ error: err.message || String(err) || 'Server error', stack: err.stack, str: String(err) });
   }
 }
 
