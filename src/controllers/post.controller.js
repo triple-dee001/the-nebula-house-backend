@@ -159,13 +159,25 @@ async function createPost(req, res) {
 // ─── TOGGLE LIKE ─────────────────────────────
 async function toggleLike(req, res) {
   try {
-    const { id: postId } = req.params;
+    const { id: paramId } = req.params;
     const userId = req.user?.id;
     const guestId = req.headers['x-guest-id'];
 
     if (!userId && !guestId) {
       return res.status(400).json({ error: 'User or Guest ID required' });
     }
+
+    // Resolve post by ID or slug
+    const post = await prisma.post.findFirst({
+      where: { OR: [{ id: paramId }, { slug: paramId }] },
+      select: { id: true }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const postId = post.id;
 
     let existing = null;
     if (userId) {
@@ -195,7 +207,7 @@ async function toggleLike(req, res) {
     }
   } catch (err) {
     console.error('Toggle like error:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 }
 
