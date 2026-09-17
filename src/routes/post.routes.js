@@ -28,7 +28,9 @@ router.post('/:id/like', optionalAuth, (req, res, next) => {
     res.status(500).json({ error: err.message || 'Server error' });
   });
 });
-router.post('/:id/comments', requireAuth, requireVerified, addComment);
+router.post('/:id/comments', optionalAuth, (req, res, next) => {
+  addComment(req, res).catch(next);
+});
 router.delete('/:id/comments/:commentId', requireAuth, deleteComment);
 
 // Single post operations

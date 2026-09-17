@@ -103,13 +103,16 @@ app.listen(PORT, async () => {
   console.log(`🚀 Nebula House API running on port ${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
 
-  // Run raw SQL schema check to guarantee guestId column exists in PostgreSQL & userId is nullable
+  // Run raw SQL schema check to guarantee guest columns exist in PostgreSQL & optional user IDs
   try {
     const prisma = require('./src/lib/prisma');
     await prisma.$executeRawUnsafe(`ALTER TABLE likes ADD COLUMN IF NOT EXISTS "guestId" TEXT;`);
     await prisma.$executeRawUnsafe(`ALTER TABLE likes ALTER COLUMN "userId" DROP NOT NULL;`);
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "likes_postId_guestId_key" ON likes("postId", "guestId");`);
-    console.log('✅ Database schema verified (guestId column ready & userId is nullable)');
+    
+    await prisma.$executeRawUnsafe(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS "guestName" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE comments ALTER COLUMN "authorId" DROP NOT NULL;`);
+    console.log('✅ Database schema verified (guest likes & guest comments ready)');
   } catch (err) {
     console.error('Schema init error (non-fatal):', err.message);
   }

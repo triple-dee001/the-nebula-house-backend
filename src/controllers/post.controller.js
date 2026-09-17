@@ -111,7 +111,13 @@ async function getPost(req, res) {
       console.error('Error checking like status in getPost:', likeErr.message);
     }
 
-    res.json({ ...post, liked });
+    // Format comments to provide consistent author object for guests
+    const formattedComments = (post.comments || []).map(c => ({
+      ...c,
+      author: c.author ? c.author : { id: null, name: c.guestName || 'Guest Reader', photo: null }
+    }));
+
+    res.json({ ...post, comments: formattedComments, liked });
   } catch (err) {
     console.error('getPost detailed error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -212,16 +218,45 @@ async function toggleLike(req, res) {
 // ─── ADD COMMENT ─────────────────────────────
 async function addComment(req, res) {
   try {
-    const { body } = req.body;
+    const { id: paramId } = req.params;
+    const { body, guestName } = req.body;
     if (!body?.trim()) return res.status(400).json({ error: 'Comment cannot be empty' });
 
+    const postWhere = isUuid(paramId) ? { id: paramId } : { slug: paramId };
+    const post = await prisma.post.findFirst({
+      where: postWhere,
+      select: { id: true }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const commentData = {
+      body: body.trim(),
+      postId: post.id,
+    };
+
+    if (req.user) {
+      commentData.authorId = req.user.id;
+    } else {
+      commentData.guestName = guestName?.trim() || 'Guest Reader';
+    }
+
     const comment = await prisma.comment.create({
-      data: { body: body.trim(), postId: req.params.id, authorId: req.user.id },
+      data: commentData,
       include: { author: { select: { id: true, name: true, photo: true } } },
     });
-    res.status(201).json(comment);
+
+    const formattedComment = {
+      ...comment,
+      author: comment.author ? comment.author : { id: null, name: comment.guestName || 'Guest Reader', photo: null }
+    };
+
+    res.status(201).json(formattedComment);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('addComment error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 }
 

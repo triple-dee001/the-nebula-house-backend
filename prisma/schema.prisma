@@ -80,8 +80,9 @@ model Comment {
   body      String
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  guestName String?
   createdAt DateTime @default(now())
 
   @@map("comments")
