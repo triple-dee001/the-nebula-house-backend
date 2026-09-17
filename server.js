@@ -91,7 +91,7 @@ app.use((err, req, res, next) => {
   if (err.message?.startsWith('CORS')) {
     return res.status(403).json({ error: err.message });
   }
-  res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message });
+  res.status(500).json({ error: 'Server error', message: err.message, stack: err.stack });
 });
 
 // ─── START ────────────────────────────────────
