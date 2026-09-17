@@ -90,11 +90,13 @@ model Like {
   id        String   @id @default(uuid())
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId   String?
   createdAt DateTime @default(now())
 
   @@unique([postId, userId])
+  @@unique([postId, guestId])
   @@map("likes")
 }
 

@@ -92,11 +92,17 @@ async function getPost(req, res) {
     // Increment views
     await prisma.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } });
 
-    // Check if current user liked
+    // Check if current user or guest liked
     let liked = false;
+    const guestId = req.headers['x-guest-id'];
     if (req.user) {
-      const like = await prisma.like.findUnique({
-        where: { postId_userId: { postId: post.id, userId: req.user.id } },
+      const like = await prisma.like.findFirst({
+        where: { postId: post.id, userId: req.user.id },
+      });
+      liked = !!like;
+    } else if (guestId) {
+      const like = await prisma.like.findFirst({
+        where: { postId: post.id, guestId },
       });
       liked = !!like;
     }
@@ -149,22 +155,41 @@ async function createPost(req, res) {
 async function toggleLike(req, res) {
   try {
     const { id: postId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    const guestId = req.headers['x-guest-id'];
 
-    const existing = await prisma.like.findUnique({
-      where: { postId_userId: { postId, userId } },
-    });
+    if (!userId && !guestId) {
+      return res.status(400).json({ error: 'User or Guest ID required' });
+    }
+
+    let existing = null;
+    if (userId) {
+      existing = await prisma.like.findFirst({
+        where: { postId, userId },
+      });
+    } else if (guestId) {
+      existing = await prisma.like.findFirst({
+        where: { postId, guestId },
+      });
+    }
 
     if (existing) {
       await prisma.like.delete({ where: { id: existing.id } });
       const count = await prisma.like.count({ where: { postId } });
       return res.json({ liked: false, count });
     } else {
-      await prisma.like.create({ data: { postId, userId } });
+      await prisma.like.create({
+        data: {
+          postId,
+          userId: userId || null,
+          guestId: userId ? null : guestId,
+        },
+      });
       const count = await prisma.like.count({ where: { postId } });
       return res.json({ liked: true, count });
     }
   } catch (err) {
+    console.error('Toggle like error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }

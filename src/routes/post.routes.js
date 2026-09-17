@@ -25,7 +25,7 @@ router.get('/:id', optionalAuth, getPost);
 router.post('/', requireAuth, requireVerified, createPost);
 router.put('/:id', requireAuth, requireVerified, requireOwnerOrAdmin, updatePost);
 router.delete('/:id', requireAuth, requireOwnerOrAdmin, deletePost);
-router.post('/:id/like', requireAuth, toggleLike);
+router.post('/:id/like', optionalAuth, toggleLike);
 router.post('/:id/comments', requireAuth, requireVerified, addComment);
 router.delete('/:id/comments/:commentId', requireAuth, deleteComment);
 
