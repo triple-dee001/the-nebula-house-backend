@@ -20,12 +20,17 @@ router.get('/', getPosts);
 router.get('/mine', requireAuth, getMyPosts);
 router.get('/share/:slug', getSharePage);
 router.get('/share-image/:slug', getPostShareImage);
-router.get('/:id', optionalAuth, getPost);
+router.get('/:id', optionalAuth, (req, res, next) => { getPost(req, res).catch(next); });
 // requireVerified now transparently allows admins through — no extra middleware needed
-router.post('/', requireAuth, requireVerified, createPost);
-router.put('/:id', requireAuth, requireVerified, requireOwnerOrAdmin, updatePost);
-router.delete('/:id', requireAuth, requireOwnerOrAdmin, deletePost);
-router.post('/:id/like', optionalAuth, toggleLike);
+router.post('/', requireAuth, requireVerified, (req, res, next) => { createPost(req, res).catch(next); });
+router.put('/:id', requireAuth, requireVerified, requireOwnerOrAdmin, (req, res, next) => { updatePost(req, res).catch(next); });
+router.delete('/:id', requireAuth, requireOwnerOrAdmin, (req, res, next) => { deletePost(req, res).catch(next); });
+router.post('/:id/like', optionalAuth, (req, res, next) => {
+  toggleLike(req, res).catch(err => {
+    console.error('Unhandled toggleLike route error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
+  });
+});
 router.post('/:id/comments', requireAuth, requireVerified, addComment);
 router.delete('/:id/comments/:commentId', requireAuth, deleteComment);
 
