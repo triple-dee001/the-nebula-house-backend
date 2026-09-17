@@ -69,7 +69,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'src/uploads')));
 
 // ─── HEALTH CHECK ─────────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
+  res.json({ status: 'ok', version: '1.1.0-comments', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
 });
 
 // ─── ROUTES ───────────────────────────────────
