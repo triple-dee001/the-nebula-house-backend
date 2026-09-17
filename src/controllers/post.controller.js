@@ -111,6 +111,7 @@ async function getPost(req, res) {
       }
     } catch (likeErr) {
       console.error('Error checking like status in getPost:', likeErr.message);
+      post.likeError = likeErr.message;
     }
 
     res.json({ ...post, liked });
