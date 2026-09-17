@@ -113,7 +113,8 @@ async function getPost(req, res) {
 
     res.json({ ...post, liked });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('getPost detailed error:', err);
+    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
   }
 }
 
