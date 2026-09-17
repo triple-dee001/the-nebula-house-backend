@@ -42,16 +42,20 @@ app.use(cors({
 // ─── RATE LIMITING ────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 50,
   message: { error: 'Too many attempts, please try again in 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
 });
 
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 200,
   message: { error: 'Too many requests' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
 });
 
 app.use('/api/auth', authLimiter);
