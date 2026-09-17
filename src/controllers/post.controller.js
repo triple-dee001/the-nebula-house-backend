@@ -60,17 +60,17 @@ async function getPosts(req, res) {
   }
 }
 
+function isUuid(str) {
+  return typeof str === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+}
+
 // ─── GET SINGLE POST ──────────────────────────
 async function getPost(req, res) {
   try {
     const { id } = req.params;
+    const postWhere = isUuid(id) ? { id } : { slug: id };
     const post = await prisma.post.findFirst({
-      where: {
-        OR: [
-          { id },
-          { slug: id }
-        ]
-      },
+      where: postWhere,
       include: {
         author: { select: { id: true, name: true, photo: true, bio: true } },
         comments: {
@@ -114,7 +114,7 @@ async function getPost(req, res) {
     res.json({ ...post, liked });
   } catch (err) {
     console.error('getPost detailed error:', err);
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Server error' });
   }
 }
 
@@ -167,9 +167,10 @@ async function toggleLike(req, res) {
       return res.status(400).json({ error: 'User or Guest ID required' });
     }
 
-    // Resolve post by ID or slug
+    // Resolve post by ID or slug safely without invalid UUID syntax error
+    const postWhere = isUuid(paramId) ? { id: paramId } : { slug: paramId };
     const post = await prisma.post.findFirst({
-      where: { OR: [{ id: paramId }, { slug: paramId }] },
+      where: postWhere,
       select: { id: true }
     });
 
