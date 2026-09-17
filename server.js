@@ -73,8 +73,14 @@ app.get('/health', (req, res) => {
 });
 
 // ─── ROUTES ───────────────────────────────────
+const { optionalAuth } = require('./src/middleware/auth');
+const { toggleCommentLike } = require('./src/controllers/post.controller');
+
 app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/api/users', require('./src/routes/user.routes'));
+app.post('/api/comments/:commentId/like', optionalAuth, (req, res, next) => {
+  toggleCommentLike(req, res).catch(next);
+});
 app.use('/api/posts', require('./src/routes/post.routes'));
 app.use('/api/admin', require('./src/routes/admin.routes'));
 app.use('/api/notifications', require('./src/routes/notification.routes'));
