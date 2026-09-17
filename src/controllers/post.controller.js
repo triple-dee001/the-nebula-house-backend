@@ -210,7 +210,8 @@ async function toggleLike(req, res) {
       postId
     );
 
-    const count = countRes && countRes[0] ? Number(countRes[0].count) : 0;
+    const rawCount = countRes && countRes[0] ? countRes[0].count : 0;
+    const count = parseInt(String(rawCount), 10) || 0;
     const liked = !existing || existing.length === 0;
 
     return res.json({ liked, count });
