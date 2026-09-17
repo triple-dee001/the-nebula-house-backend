@@ -25,6 +25,9 @@ router.get('/share-image/:slug', getPostShareImage);
 router.post('/comments/:commentId/like', optionalAuth, (req, res, next) => {
   toggleCommentLike(req, res).catch(next);
 });
+router.post('/:id/comments/:commentId/like', optionalAuth, (req, res, next) => {
+  toggleCommentLike(req, res).catch(next);
+});
 router.post('/:id/like', optionalAuth, (req, res, next) => {
   toggleLike(req, res).catch(err => {
     console.error('Unhandled toggleLike route error:', err);
