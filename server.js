@@ -59,7 +59,7 @@ const generalLimiter = rateLimit({
 });
 
 app.use('/api/auth', authLimiter);
-app.use('/api', generalLimiter);
+// app.use('/api', generalLimiter);
 
 // ─── BODY PARSING ─────────────────────────────
 app.use(express.json({ limit: '10mb' }));
