@@ -95,16 +95,20 @@ async function getPost(req, res) {
     // Check if current user or guest liked
     let liked = false;
     const guestId = req.headers['x-guest-id'];
-    if (req.user) {
-      const like = await prisma.like.findFirst({
-        where: { postId: post.id, userId: req.user.id },
-      });
-      liked = !!like;
-    } else if (guestId) {
-      const like = await prisma.like.findFirst({
-        where: { postId: post.id, guestId },
-      });
-      liked = !!like;
+    try {
+      if (req.user) {
+        const like = await prisma.like.findFirst({
+          where: { postId: post.id, userId: req.user.id },
+        });
+        liked = !!like;
+      } else if (guestId) {
+        const like = await prisma.like.findFirst({
+          where: { postId: post.id, guestId },
+        });
+        liked = !!like;
+      }
+    } catch (likeErr) {
+      console.error('Error checking like status in getPost:', likeErr.message);
     }
 
     res.json({ ...post, liked });
