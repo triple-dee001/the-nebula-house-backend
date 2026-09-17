@@ -200,7 +200,7 @@ async function toggleLike(req, res) {
     } else {
       const newId = crypto.randomUUID();
       await prisma.$executeRawUnsafe(
-        `INSERT INTO likes (id, "postId", "userId", "guestId", "createdAt") VALUES ($1, $2, $3, $4, NOW())`,
+        `INSERT INTO likes (id, "postId", "userId", "guestId", "createdAt") VALUES ($1, $2, $3::text, $4::text, NOW())`,
         newId, postId, userId, guestId
       );
     }
@@ -217,7 +217,7 @@ async function toggleLike(req, res) {
     return res.json({ liked, count });
   } catch (err) {
     console.error('Toggle like error:', err);
-    res.status(500).json({ error: 'Server error', details: err.message });
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 }
 
