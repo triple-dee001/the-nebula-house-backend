@@ -74,8 +74,11 @@ async function getPost(req, res) {
       include: {
         author: { select: { id: true, name: true, photo: true, bio: true } },
         comments: {
-          orderBy: { createdAt: 'desc' },
-          include: { author: { select: { id: true, name: true, photo: true } } },
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: { select: { id: true, name: true, photo: true } },
+            likes: true,
+          },
         },
         _count: { select: { likes: true } },
       },
@@ -111,11 +114,28 @@ async function getPost(req, res) {
       console.error('Error checking like status in getPost:', likeErr.message);
     }
 
-    // Format comments to provide consistent author object for guests
-    const formattedComments = (post.comments || []).map(c => ({
-      ...c,
-      author: c.author ? c.author : { id: null, name: c.guestName || 'Guest Reader', photo: null }
-    }));
+    // Format comments to provide consistent author object, likes count, and liked state
+    const formattedComments = (post.comments || []).map(c => {
+      let commentLiked = false;
+      if (req.user) {
+        commentLiked = (c.likes || []).some(l => l.userId === req.user.id);
+      } else if (guestId) {
+        commentLiked = (c.likes || []).some(l => l.guestId === guestId);
+      }
+      return {
+        id: c.id,
+        body: c.body,
+        postId: c.postId,
+        authorId: c.authorId,
+        guestName: c.guestName,
+        parentId: c.parentId,
+        createdAt: c.createdAt,
+        author: c.author ? c.author : { id: null, name: c.guestName || 'Guest Reader', photo: null },
+        isGuest: !c.authorId,
+        likesCount: c.likes ? c.likes.length : 0,
+        liked: commentLiked,
+      };
+    });
 
     res.json({ ...post, comments: formattedComments, liked });
   } catch (err) {
@@ -219,7 +239,7 @@ async function toggleLike(req, res) {
 async function addComment(req, res) {
   try {
     const { id: paramId } = req.params;
-    const { body, guestName } = req.body;
+    const { body, guestName, parentId } = req.body;
     if (!body?.trim()) return res.status(400).json({ error: 'Comment cannot be empty' });
 
     const postWhere = isUuid(paramId) ? { id: paramId } : { slug: paramId };
@@ -235,6 +255,7 @@ async function addComment(req, res) {
     const commentData = {
       body: body.trim(),
       postId: post.id,
+      parentId: parentId || null,
     };
 
     if (req.user) {
@@ -250,13 +271,59 @@ async function addComment(req, res) {
 
     const formattedComment = {
       ...comment,
-      author: comment.author ? comment.author : { id: null, name: comment.guestName || 'Guest Reader', photo: null }
+      author: comment.author ? comment.author : { id: null, name: comment.guestName || 'Guest Reader', photo: null },
+      isGuest: !comment.authorId,
+      likesCount: 0,
+      liked: false,
     };
 
     res.status(201).json(formattedComment);
   } catch (err) {
     console.error('addComment error:', err);
     res.status(500).json({ error: err.message || 'Server error' });
+  }
+}
+
+// ─── TOGGLE COMMENT LIKE ──────────────────────
+async function toggleCommentLike(req, res) {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user?.id || null;
+    const guestId = req.headers['x-guest-id'] || null;
+
+    if (!userId && !guestId) {
+      return res.status(400).json({ error: 'User or Guest ID required' });
+    }
+
+    const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    let existing = null;
+    if (userId) {
+      existing = await prisma.commentLike.findFirst({ where: { commentId, userId } });
+    } else if (guestId) {
+      existing = await prisma.commentLike.findFirst({ where: { commentId, guestId } });
+    }
+
+    if (existing) {
+      await prisma.commentLike.delete({ where: { id: existing.id } });
+    } else {
+      await prisma.commentLike.create({
+        data: {
+          commentId,
+          userId: userId || undefined,
+          guestId: userId ? undefined : guestId,
+        }
+      });
+    }
+
+    const count = await prisma.commentLike.count({ where: { commentId } });
+    const liked = !existing;
+
+    return res.json({ liked, count });
+  } catch (err) {
+    console.error('toggleCommentLike error:', err);
+    return res.status(500).json({ error: err.message || 'Server error' });
   }
 }
 
@@ -531,4 +598,4 @@ async function notifyFollowersOfNewPost(postId) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, getMyPosts, updatePost, deletePost, getSharePage, getPostShareImage, notifyFollowersOfNewPost };
+module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, toggleCommentLike, getMyPosts, updatePost, deletePost, getSharePage, getPostShareImage, notifyFollowersOfNewPost };

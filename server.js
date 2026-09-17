@@ -112,7 +112,21 @@ app.listen(PORT, async () => {
     
     await prisma.$executeRawUnsafe(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS "guestName" TEXT;`);
     await prisma.$executeRawUnsafe(`ALTER TABLE comments ALTER COLUMN "authorId" DROP NOT NULL;`);
-    console.log('✅ Database schema verified (guest likes & guest comments ready)');
+    await prisma.$executeRawUnsafe(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS "parentId" TEXT;`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        id TEXT PRIMARY KEY,
+        "commentId" TEXT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        "userId" TEXT REFERENCES users(id) ON DELETE CASCADE,
+        "guestId" TEXT,
+        "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "comment_likes_commentId_userId_key" ON comment_likes("commentId", "userId");`);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "comment_likes_commentId_guestId_key" ON comment_likes("commentId", "guestId");`);
+
+    console.log('✅ Database schema verified (guest likes, comments, replies & comment_likes ready)');
   } catch (err) {
     console.error('Schema init error (non-fatal):', err.message);
   }

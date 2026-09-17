@@ -83,9 +83,27 @@ model Comment {
   authorId  String?
   author    User?    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   guestName String?
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  likes     CommentLike[]
   createdAt DateTime @default(now())
 
   @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(uuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId   String?
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@unique([commentId, guestId])
+  @@map("comment_likes")
 }
 
 model Like {
