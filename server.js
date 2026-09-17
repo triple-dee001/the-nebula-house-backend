@@ -31,11 +31,10 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow no-origin (Postman, curl) in dev
-    if (!origin && process.env.NODE_ENV !== 'production') return cb(null, true);
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-ID', 'Pragma', 'Cache-Control', 'Expires'],
   credentials: true,
 }));
 
