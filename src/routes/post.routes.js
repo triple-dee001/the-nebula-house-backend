@@ -22,6 +22,9 @@ router.get('/share/:slug', getSharePage);
 router.get('/share-image/:slug', getPostShareImage);
 
 // Sub-resource endpoints
+router.post('/comments/:commentId/like', optionalAuth, (req, res, next) => {
+  toggleCommentLike(req, res).catch(next);
+});
 router.post('/:id/like', optionalAuth, (req, res, next) => {
   toggleLike(req, res).catch(err => {
     console.error('Unhandled toggleLike route error:', err);
@@ -30,9 +33,6 @@ router.post('/:id/like', optionalAuth, (req, res, next) => {
 });
 router.post('/:id/comments', optionalAuth, (req, res, next) => {
   addComment(req, res).catch(next);
-});
-router.post('/comments/:commentId/like', optionalAuth, (req, res, next) => {
-  toggleCommentLike(req, res).catch(next);
 });
 router.delete('/:id/comments/:commentId', requireAuth, deleteComment);
 
