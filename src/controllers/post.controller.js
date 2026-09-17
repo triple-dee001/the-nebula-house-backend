@@ -97,15 +97,17 @@ async function getPost(req, res) {
     const guestId = req.headers['x-guest-id'];
     try {
       if (req.user) {
-        const like = await prisma.like.findFirst({
-          where: { postId: post.id, userId: req.user.id },
-        });
-        liked = !!like;
+        const check = await prisma.$queryRawUnsafe(
+          `SELECT id FROM likes WHERE "postId" = $1 AND "userId" = $2 LIMIT 1`,
+          post.id, req.user.id
+        );
+        liked = check && check.length > 0;
       } else if (guestId) {
-        const like = await prisma.like.findFirst({
-          where: { postId: post.id, guestId },
-        });
-        liked = !!like;
+        const check = await prisma.$queryRawUnsafe(
+          `SELECT id FROM likes WHERE "postId" = $1 AND "guestId" = $2 LIMIT 1`,
+          post.id, guestId
+        );
+        liked = check && check.length > 0;
       }
     } catch (likeErr) {
       console.error('Error checking like status in getPost:', likeErr.message);
@@ -159,52 +161,59 @@ async function createPost(req, res) {
 // ─── TOGGLE LIKE ─────────────────────────────
 async function toggleLike(req, res) {
   try {
+    const crypto = require('crypto');
     const { id: paramId } = req.params;
-    const userId = req.user?.id;
-    const guestId = req.headers['x-guest-id'];
+    const userId = req.user?.id || null;
+    const guestId = req.headers['x-guest-id'] || null;
 
     if (!userId && !guestId) {
       return res.status(400).json({ error: 'User or Guest ID required' });
     }
 
     // Resolve post by ID or slug
-    const post = await prisma.post.findFirst({
-      where: { OR: [{ id: paramId }, { slug: paramId }] },
-      select: { id: true }
-    });
+    const posts = await prisma.$queryRawUnsafe(
+      `SELECT id FROM posts WHERE id = $1 OR slug = $1 LIMIT 1`,
+      paramId
+    );
 
-    if (!post) {
+    if (!posts || posts.length === 0) {
       return res.status(404).json({ error: 'Story not found' });
     }
 
-    const postId = post.id;
+    const postId = posts[0].id;
 
-    let existing = null;
+    let existing = [];
     if (userId) {
-      existing = await prisma.like.findFirst({
-        where: { postId, userId },
-      });
+      existing = await prisma.$queryRawUnsafe(
+        `SELECT id FROM likes WHERE "postId" = $1 AND "userId" = $2 LIMIT 1`,
+        postId, userId
+      );
     } else if (guestId) {
-      existing = await prisma.like.findFirst({
-        where: { postId, guestId },
-      });
+      existing = await prisma.$queryRawUnsafe(
+        `SELECT id FROM likes WHERE "postId" = $1 AND "guestId" = $2 LIMIT 1`,
+        postId, guestId
+      );
     }
 
-    if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
-      const count = await prisma.like.count({ where: { postId } });
-      return res.json({ liked: false, count });
+    if (existing && existing.length > 0) {
+      await prisma.$executeRawUnsafe(`DELETE FROM likes WHERE id = $1`, existing[0].id);
     } else {
-      await prisma.like.create({
-        data: {
-          postId,
-          userId: userId || null,
-          guestId: userId ? null : guestId,
-        },
-      });
-      const count = await prisma.like.count({ where: { postId } });
-      return res.json({ liked: true, count });
+      const newId = crypto.randomUUID();
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO likes (id, "postId", "userId", "guestId", "createdAt") VALUES ($1, $2, $3, $4, NOW())`,
+        newId, postId, userId, guestId
+      );
     }
+
+    const countRes = await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::int as count FROM likes WHERE "postId" = $1`,
+      postId
+    );
+
+    const count = countRes && countRes[0] ? Number(countRes[0].count) : 0;
+    const liked = !existing || existing.length === 0;
+
+    return res.json({ liked, count });
   } catch (err) {
     console.error('Toggle like error:', err);
     res.status(500).json({ error: 'Server error', details: err.message });
