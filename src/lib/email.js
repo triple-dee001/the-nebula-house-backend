@@ -229,6 +229,23 @@ async function sendFollowerNewPostEmail(email, name, authorName, postTitle, post
   });
 }
 
+async function sendAdminNewPendingPostEmail(adminEmail, adminName, authorName, postTitle) {
+  const html = wrapTemplate('New Submission for Review', `
+    <p>Dear ${adminName || 'Admin'},</p>
+    <p><strong style="color: #ffffff;">${authorName}</strong> has just submitted a new story titled <strong style="color: #ffffff;">"${postTitle}"</strong> for review.</p>
+    <p>Please review and approve or decline the submission in the Admin Dashboard:</p>
+    <div style="text-align: center; margin: 2.5rem 0;">
+      <a href="${BASE_URL}/the-admin-room.html#approvals" style="display: inline-block; background: #ffffff; color: #000000; padding: 0.85rem 2.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">Review in Admin HQ</a>
+    </div>
+  `);
+
+  await sendEmail({
+    to: adminEmail,
+    subject: `New Article Pending Approval: "${postTitle}" by ${authorName}`,
+    html,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -237,4 +254,6 @@ module.exports = {
   sendWriterWelcomeEmail,
   sendMentorshipRequestEmail,
   sendFollowerNewPostEmail,
+  sendAdminNewPendingPostEmail,
 };
+

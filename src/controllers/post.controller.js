@@ -173,6 +173,8 @@ async function createPost(req, res) {
 
     if (status === 'PUBLISHED') {
       notifyFollowersOfNewPost(post.id).catch(err => console.error('Failed to notify followers on direct post:', err));
+    } else if (status === 'PENDING') {
+      notifyAdminsOfPendingPost(post.id).catch(err => console.error('Failed to notify admins of pending post:', err));
     }
 
     const message = isAdminUser ? 'Story published!' : 'Story submitted for review';
@@ -401,6 +403,10 @@ async function updatePost(req, res) {
       },
     });
 
+    if (newStatus === 'PENDING') {
+      notifyAdminsOfPendingPost(updated.id).catch(err => console.error('Failed to notify admins of updated pending post:', err));
+    }
+
     res.json({ message: 'Story updated successfully', post: updated });
   } catch (err) {
     console.error('Update post error:', err);
@@ -598,4 +604,50 @@ async function notifyFollowersOfNewPost(postId) {
   }
 }
 
-module.exports = { getPosts, getPost, createPost, toggleLike, addComment, deleteComment, toggleCommentLike, getMyPosts, updatePost, deletePost, getSharePage, getPostShareImage, notifyFollowersOfNewPost };
+async function notifyAdminsOfPendingPost(postId) {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: { author: true },
+    });
+    if (!post || post.status !== 'PENDING') return;
+
+    const { sendAdminNewPendingPostEmail } = require('../lib/email');
+
+    // Find all admins and super admins
+    const admins = await prisma.user.findMany({
+      where: {
+        role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+      },
+      select: { id: true, name: true, email: true },
+    });
+
+    console.log(`Notifying ${admins.length} admins of pending post "${post.title}" by ${post.author.name}`);
+
+    for (const admin of admins) {
+      // 1. In-app notification for admin
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          type: 'POST_STATUS',
+          title: 'New Article for Review',
+          message: `${post.author.name} submitted a new story "${post.title}" for approval.`,
+        },
+      }).catch(err => console.error('Failed to create admin in-app notification:', err));
+
+      // 2. Email notification for admin
+      sendAdminNewPendingPostEmail(admin.email, admin.name, post.author.name, post.title).catch(err => {
+        console.error(`Failed to send pending post email to admin ${admin.email}:`, err);
+      });
+    }
+  } catch (err) {
+    console.error('Failed to notify admins of pending post:', err);
+  }
+}
+
+module.exports = {
+  getPosts, getPost, createPost, toggleLike, addComment, deleteComment,
+  toggleCommentLike, getMyPosts, updatePost, deletePost, getSharePage,
+  getPostShareImage, notifyFollowersOfNewPost, notifyAdminsOfPendingPost,
+};
+
