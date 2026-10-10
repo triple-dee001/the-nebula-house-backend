@@ -10,20 +10,26 @@ function slugify(text) {
     .replace(/\-\-+/g, '-');
 }
 
-async function generateUniqueSlug(title) {
+async function generateUniqueSlug(title, excludePostId = null) {
   let baseSlug = slugify(title);
   if (!baseSlug) baseSlug = 'story';
   
   let slug = baseSlug;
   let count = 1;
   while (true) {
-    const existing = await prisma.post.findFirst({ where: { slug } });
+    const existing = await prisma.post.findFirst({
+      where: {
+        slug,
+        ...(excludePostId ? { id: { not: excludePostId } } : {}),
+      },
+    });
     if (!existing) break;
     slug = `${baseSlug}-${count}`;
     count++;
   }
   return slug;
 }
+
 
 function extractFirstImage(html) {
   if (!html) return null;
@@ -373,18 +379,20 @@ async function updatePost(req, res) {
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
     // Verify ownership or admin role
-    if (post.authorId !== req.user.id && req.user.role === 'USER') {
+    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    if (post.authorId !== req.user.id && !isAdmin) {
       return res.status(403).json({ error: 'Not authorized to edit this story' });
     }
+
 
     // Determine new status: reset to PENDING if edited by a regular user,
     // keep as PUBLISHED if edited by an admin.
     const newStatus = (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN') ? 'PUBLISHED' : 'PENDING';
 
-    // If title changed or slug missing, generate new slug
+    // If title changed or slug missing, generate new slug (excluding current post ID from collision)
     let slug = post.slug;
     if (title.trim() !== post.title || !slug) {
-      slug = await generateUniqueSlug(title.trim());
+      slug = await generateUniqueSlug(title.trim(), post.id);
     }
 
     const updated = await prisma.post.update({
