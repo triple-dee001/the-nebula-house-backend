@@ -82,6 +82,7 @@ app.use('/api/notifications', require('./src/routes/notification.routes'));
 app.use('/api/ai', require('./src/routes/ai.routes'));
 app.use('/api/challenges', require('./src/routes/challenge.routes'));
 app.use('/api/mentorship', require('./src/routes/mentorship.routes'));
+app.use('/api/chapter-room', require('./src/routes/chapter-room.routes'));
 app.use('/api', require('./src/routes/misc.routes'));
 
 // ─── 404 ──────────────────────────────────────

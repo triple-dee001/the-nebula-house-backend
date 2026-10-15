@@ -32,6 +32,7 @@ model User {
   posts           Post[]
   comments        Comment[]
   likes           Like[]
+  commentLikes    CommentLike[]
   nominations     Nomination[]
   newsletter      Newsletter?
 
@@ -40,6 +41,12 @@ model User {
   notifications          Notification[]
   followers              Follow[]            @relation("UserFollowing")
   following              Follow[]            @relation("UserFollowers")
+
+  crProgress             CRReadingProgress[]
+  crShelves              CRShelfItem[]
+  crPlans                CRReadingPlan[]
+  crComments             CRComment[]
+  crReactions            CRReaction[]
 
   @@map("users")
 }
@@ -194,3 +201,160 @@ model Follow {
   @@unique([followerId, followingId])
   @@map("follows")
 }
+
+// ========================================================================
+// CHAPTER ROOM MODELS (Pass 4)
+// ========================================================================
+
+model CRBook {
+  id              String               @id @default(uuid())
+  slug            String               @unique
+  title           String
+  author          String
+  year            Int?
+  genre           String
+  genres          String?
+  coverImage      String?
+  readingTime     String
+  chapterCount    Int                  @default(1)
+  difficulty      String
+  difficultyNote  String?
+  recommendRate   Int                  @default(90)
+  isBotm          Boolean              @default(false)
+  botmMonth       String?
+  tagline         String?
+  description     String
+  whyWeAreReading String?
+  keyThemes       String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @default(now()) @updatedAt
+
+  chapters        CRChapter[]
+  progress        CRReadingProgress[]
+  shelves         CRShelfItem[]
+  plans           CRReadingPlan[]
+
+  @@map("cr_books")
+}
+
+model CRChapter {
+  id               String      @id @default(uuid())
+  bookId           String
+  book             CRBook      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  number           Int
+  title            String
+  readingTime      String
+  readingPanelText String?
+  summary          String
+  keyIdeas         String?
+  discussionPrompt String?
+  createdAt        DateTime    @default(now())
+
+  comments         CRComment[]
+
+  @@unique([bookId, number])
+  @@map("cr_chapters")
+}
+
+model CRReadingProgress {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId            String
+  book              CRBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  currentChapter    Int       @default(1)
+  completedChapters String    @default("[]")
+  status            String    @default("currently-reading")
+  abandonReason     String?
+  reflection        String?
+  wouldRecommend    Boolean?
+  startedAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  @@unique([userId, bookId])
+  @@map("cr_reading_progress")
+}
+
+model CRShelfItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String
+  book      CRBook   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  shelf     String   // 'currentlyReading', 'nextUp', 'wishlist', 'finished', 'abandoned'
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, bookId])
+  @@map("cr_shelf_items")
+}
+
+model CRReadingPlan {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId     String
+  book       CRBook   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  targetDate DateTime
+  frequency  String
+  createdAt  DateTime @default(now())
+
+  @@map("cr_reading_plans")
+}
+
+model CRComment {
+  id             String        @id @default(uuid())
+  chapterId      String
+  chapter        CRChapter     @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  authorId       String?
+  author         User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  guestName      String?
+  text           String
+  isSpoiler      Boolean       @default(false)
+  spoilerSummary String?
+  parentId       String?
+  parent         CRComment?    @relation("CRCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies        CRComment[]   @relation("CRCommentReplies")
+  isHidden       Boolean       @default(false)
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  reactions      CRReaction[]
+  reports        CRReport[]
+
+  @@index([chapterId])
+  @@map("cr_comments")
+}
+
+model CRReaction {
+  id        String    @id @default(uuid())
+  commentId String
+  comment   CRComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId   String?
+  type      String    // 'interesting', 'madeMeThink', 'excellentPoint', 'iDisagree'
+  createdAt DateTime  @default(now())
+
+  @@unique([commentId, userId, type])
+  @@unique([commentId, guestId, type])
+  @@map("cr_reactions")
+}
+
+model CRReport {
+  id         String    @id @default(uuid())
+  commentId  String
+  comment    CRComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporterId String?
+  category   String    // 'Spoilers without tag', 'Harassment or hate speech', etc.
+  details    String?
+  status     String    @default("PENDING")
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@map("cr_reports")
+}
+
