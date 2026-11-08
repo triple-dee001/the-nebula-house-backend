@@ -3,7 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const {
   getStats, getAllUsers, updateUserRole, updateUserWriterStatus, deleteUser, forceVerifyUser,
   getAllPosts, approvePost, rejectPost, deletePost,
-  getNewsletter, getNominations, toggleUserMentor,
+  getNewsletter, deleteNewsletterSubscriber, getNominations, toggleUserMentor,
 } = require('../controllers/admin.controller');
 
 // All admin routes require auth + admin role
@@ -28,6 +28,7 @@ router.delete('/posts/:id', deletePost);
 
 // Newsletter
 router.get('/newsletter', getNewsletter);
+router.delete('/newsletter/:id', deleteNewsletterSubscriber);
 
 // Nominations
 router.get('/nominations', getNominations);

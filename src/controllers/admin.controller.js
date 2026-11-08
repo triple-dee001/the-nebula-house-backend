@@ -278,6 +278,25 @@ async function getNewsletter(req, res) {
   }
 }
 
+async function deleteNewsletterSubscriber(req, res) {
+  try {
+    const { id } = req.params;
+    const sub = await prisma.newsletter.delete({ where: { id } });
+
+    // Also attempt removing from Brevo if Brevo key present
+    if (process.env.BREVO_API_KEY && sub.email) {
+      fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(sub.email)}`, {
+        method: 'DELETE',
+        headers: { 'api-key': process.env.BREVO_API_KEY, 'accept': 'application/json' },
+      }).catch(err => console.error('Brevo delete error:', err));
+    }
+
+    res.json({ message: 'Subscriber removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
 // ─── NOMINATIONS ─────────────────────────────
 async function getNominations(req, res) {
   try {
@@ -312,5 +331,5 @@ async function toggleUserMentor(req, res) {
 module.exports = {
   getStats, getAllUsers, updateUserRole, updateUserWriterStatus, deleteUser, forceVerifyUser,
   getAllPosts, approvePost, rejectPost, deletePost,
-  getNewsletter, getNominations, toggleUserMentor,
+  getNewsletter, deleteNewsletterSubscriber, getNominations, toggleUserMentor,
 };

@@ -4,8 +4,27 @@ const { sendSubscriptionWelcomeEmail } = require('../lib/email');
 // ─── SUBSCRIBE TO NEWSLETTER ─────────────────
 async function subscribe(req, res) {
   try {
-    const { email, name } = req.body;
+    const { email, name, website_hp, formLoadedAt } = req.body;
     if (!email) return res.status(400).json({ error: 'Email required' });
+
+    // Anti-bot Trap 1: Honeypot field filled by scraper bots
+    if (website_hp) {
+      console.warn(`[Bot Blocked] Honeypot triggered by IP ${req.ip} for email: ${email}`);
+      return res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
+    }
+
+    // Anti-bot Trap 2: Time to submit check (bots submit in under 1.5s)
+    if (formLoadedAt && Date.now() - parseInt(formLoadedAt) < 1500) {
+      console.warn(`[Bot Blocked] Submission too fast (${Date.now() - parseInt(formLoadedAt)}ms) by IP ${req.ip} for email: ${email}`);
+      return res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
+    }
+
+    // Anti-bot Trap 3: Excessive dot stuffing in username (e.g. e.zu.fup.uso4.6)
+    const username = email.split('@')[0] || '';
+    if ((username.match(/\./g) || []).length >= 4) {
+      console.warn(`[Bot Blocked] Dot stuffing pattern: ${email}`);
+      return res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
+    }
 
     const existing = await prisma.newsletter.findUnique({ where: { email: email.toLowerCase() } });
     if (existing) return res.json({ message: 'You are already subscribed!' });
