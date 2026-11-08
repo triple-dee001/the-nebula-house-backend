@@ -246,6 +246,48 @@ async function sendAdminNewPendingPostEmail(adminEmail, adminName, authorName, p
   });
 }
 
+async function sendAdminNewUserEmail(adminEmail, adminName, userName, userEmail, accountType) {
+  const typeLabel = accountType === 'writer' ? 'Writer' : 'Reader';
+  const html = wrapTemplate(`New ${typeLabel} Signup`, `
+    <p>Dear ${adminName || 'Admin'},</p>
+    <p>A new ${typeLabel.toLowerCase()} has just joined The Nebula House:</p>
+    <div style="background: rgba(255,255,255,0.03); border-left: 3px solid #ffffff; padding: 1rem 1.25rem; margin: 1.5rem 0; color: #dddddd;">
+      <strong style="color: #ffffff;">Name:</strong> ${userName}<br>
+      <strong style="color: #ffffff;">Email:</strong> ${userEmail}<br>
+      <strong style="color: #ffffff;">Account Type:</strong> ${typeLabel}
+    </div>
+    <div style="text-align: center; margin: 2.5rem 0;">
+      <a href="${BASE_URL}/the-admin-room.html#users" style="display: inline-block; background: #ffffff; color: #000000; padding: 0.85rem 2.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">View in Admin HQ</a>
+    </div>
+  `);
+
+  await sendEmail({
+    to: adminEmail,
+    subject: `New ${typeLabel} Joined: ${userName}`,
+    html,
+  });
+}
+
+async function sendAdminNewSubscriberEmail(adminEmail, adminName, subscriberEmail, subscriberName) {
+  const html = wrapTemplate('New Newsletter Subscriber', `
+    <p>Dear ${adminName || 'Admin'},</p>
+    <p>A new reader has just subscribed to The Nebula House newsletter:</p>
+    <div style="background: rgba(255,255,255,0.03); border-left: 3px solid #ffffff; padding: 1rem 1.25rem; margin: 1.5rem 0; color: #dddddd;">
+      <strong style="color: #ffffff;">Email:</strong> ${subscriberEmail}<br>
+      ${subscriberName ? `<strong style="color: #ffffff;">Name:</strong> ${subscriberName}` : ''}
+    </div>
+    <div style="text-align: center; margin: 2.5rem 0;">
+      <a href="${BASE_URL}/the-admin-room.html#newsletter" style="display: inline-block; background: #ffffff; color: #000000; padding: 0.85rem 2.5rem; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">View Subscribers</a>
+    </div>
+  `);
+
+  await sendEmail({
+    to: adminEmail,
+    subject: `New Newsletter Subscriber: ${subscriberEmail}`,
+    html,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -255,5 +297,7 @@ module.exports = {
   sendMentorshipRequestEmail,
   sendFollowerNewPostEmail,
   sendAdminNewPendingPostEmail,
+  sendAdminNewUserEmail,
+  sendAdminNewSubscriberEmail,
 };
 

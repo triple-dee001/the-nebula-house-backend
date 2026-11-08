@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../lib/prisma');
 const { signToken } = require('../lib/jwt');
-const { sendVerificationEmail, sendPasswordResetEmail, sendWriterWelcomeEmail } = require('../lib/email');
+const { sendVerificationEmail, sendPasswordResetEmail, sendWriterWelcomeEmail, sendAdminNewUserEmail } = require('../lib/email');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const SUPER_ADMINS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -31,6 +31,49 @@ async function generateUniqueAuthorSlug(name) {
     count++;
   }
   return slug;
+}
+
+// ─── HELPER: auto-follow Kelechi Oji after registration ──────────────────────
+async function autoFollowKelechi(newUserId) {
+  try {
+    const kelechi = await prisma.user.findFirst({
+      where: { email: 'kelechioji@thenebulahouse.com' },
+      select: { id: true },
+    });
+    if (!kelechi || kelechi.id === newUserId) return;
+    await prisma.follow.create({
+      data: { followingId: kelechi.id, followerId: newUserId },
+    }).catch(() => {}); // ignore if already following (unique constraint)
+  } catch (err) {
+    console.error('Auto-follow Kelechi failed:', err);
+  }
+}
+
+// ─── HELPER: notify all admins of new user signup ────────────────────────────
+async function notifyAdminsNewUser(user, accountType) {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+    });
+    const typeLabel = accountType === 'writer' ? 'Writer' : 'Reader';
+    for (const admin of admins) {
+      // Email
+      sendAdminNewUserEmail(admin.email, admin.name, user.name, user.email, accountType).catch(err =>
+        console.error('Admin new-user email failed:', err)
+      );
+      // In-app dashboard notification
+      prisma.notification.create({
+        data: {
+          userId: admin.id,
+          type: 'SYSTEM',
+          title: `New ${typeLabel} Registered`,
+          message: `${user.name} (${user.email}) has just joined as a ${typeLabel.toLowerCase()}.`,
+        },
+      }).catch(err => console.error('Admin new-user notification create failed:', err));
+    }
+  } catch (err) {
+    console.error('notifyAdminsNewUser error:', err);
+  }
 }
 
 // ─── REGISTER ────────────────────────────────
@@ -71,6 +114,12 @@ async function register(req, res) {
       },
     });
 
+    // Auto-follow Kelechi Oji (non-blocking)
+    autoFollowKelechi(user.id);
+
+    // Notify admins (non-blocking)
+    notifyAdminsNewUser(user, isWriter ? 'writer' : 'reader');
+
     // Send verification email (non-blocking)
     sendVerificationEmail(user.email, user.name, verifyToken).catch(console.error);
 
@@ -100,27 +149,6 @@ async function verifyEmail(req, res) {
 
     // Send writer welcome email (non-blocking)
     sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
-
-    // Notify admins about new writer registration
-    if (user.isWriter) {
-      try {
-        const admins = await prisma.user.findMany({
-          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } }
-        });
-        for (const admin of admins) {
-          await prisma.notification.create({
-            data: {
-              userId: admin.id,
-              type: 'SYSTEM',
-              title: 'New Writer Registered',
-              message: `${user.name} (${user.email}) has registered as a writer.`,
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Failed to notify admins of new writer:', err);
-      }
-    }
 
     // Redirect to site with success message
     res.redirect(`${process.env.FRONTEND_URL || '/'}?verified=true`);
@@ -226,27 +254,14 @@ async function googleAuth(req, res) {
         },
       });
 
+      // Auto-follow Kelechi Oji (non-blocking)
+      autoFollowKelechi(user.id);
+
+      // Notify admins (non-blocking)
+      notifyAdminsNewUser(user, isWriter ? 'writer' : 'reader');
+
       // Send writer welcome email (non-blocking)
       sendWriterWelcomeEmail(user.email, user.name).catch(console.error);
-
-      // Notify admins about new writer registration
-      try {
-        const admins = await prisma.user.findMany({
-          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } }
-        });
-        for (const admin of admins) {
-          await prisma.notification.create({
-            data: {
-              userId: admin.id,
-              type: 'SYSTEM',
-              title: 'New Writer Registered (Google)',
-              message: `${user.name} (${user.email}) has registered via Google.`,
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Failed to notify admins of Google writer signup:', err);
-      }
     } else if (!user.googleId) {
       // Existing email user — link Google account
       user = await prisma.user.update({

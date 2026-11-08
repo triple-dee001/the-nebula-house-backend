@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const { sendSubscriptionWelcomeEmail } = require('../lib/email');
+const { sendSubscriptionWelcomeEmail, sendAdminNewSubscriberEmail } = require('../lib/email');
 
 // ─── SUBSCRIBE TO NEWSLETTER ─────────────────
 async function subscribe(req, res) {
@@ -23,6 +23,13 @@ async function subscribe(req, res) {
     const username = email.split('@')[0] || '';
     if ((username.match(/\./g) || []).length >= 4) {
       console.warn(`[Bot Blocked] Dot stuffing pattern: ${email}`);
+      return res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
+    }
+
+    // Anti-bot Trap 4: Reject if no formLoadedAt (direct API calls without the form timestamp)
+    // We silently accept (fake 201) so bots don't know they were blocked
+    if (!formLoadedAt) {
+      console.warn(`[Bot Blocked] Missing form timestamp from IP ${req.ip} for email: ${email}`);
       return res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
     }
 
@@ -56,6 +63,25 @@ async function subscribe(req, res) {
         }),
       }).catch(err => console.error('Brevo contact sync error:', err));
     }
+
+    // Notify admins of new subscriber (non-blocking)
+    prisma.user.findMany({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } } }).then(admins => {
+      for (const admin of admins) {
+        // Email notification
+        sendAdminNewSubscriberEmail(admin.email, admin.name, email.toLowerCase(), name || '').catch(err =>
+          console.error('Admin subscriber notification email failed:', err)
+        );
+        // In-app dashboard notification
+        prisma.notification.create({
+          data: {
+            userId: admin.id,
+            type: 'SYSTEM',
+            title: 'New Newsletter Subscriber',
+            message: `${name || email.toLowerCase()} has subscribed to the newsletter.`,
+          },
+        }).catch(err => console.error('Admin subscriber notification create failed:', err));
+      }
+    }).catch(err => console.error('Failed to fetch admins for subscriber notification:', err));
 
     res.status(201).json({ message: 'Subscribed successfully! Welcome to The Nebula House.' });
   } catch (err) {
